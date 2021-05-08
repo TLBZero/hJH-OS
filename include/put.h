@@ -6,10 +6,10 @@ typedef __builtin_va_list va_list;
 #define va_end(v) __builtin_va_end(v)
 #define va_arg(v,l) __builtin_va_arg(v,l)
 
-void puti(int num);
 int puts(const char *s);
 void putchar(const char ch);
-void kprintf(char *fmt, ...);
+void printf(char *fmt, ...);
+void print_logo();
 
 #endif
 

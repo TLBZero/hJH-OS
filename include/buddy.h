@@ -12,8 +12,9 @@
 
 #define IS_POW_OF_2(x) (!((x) & ((x)-1)))
 
-#define VA_TO_PA(va)  ((va)^(0xFFFFFFE080000000))
-#define PA_TO_VA(pa)  ((pa)^(0xFFFFFFE080000000))
+/* Convert between physical address and virtual address; valid only in kernel memory space; */
+#define K_VA2PA(va)  ((va)^(0xFFFFFFE080000000))
+#define K_PA2VA(pa)  ((pa)^(0xFFFFFFE080000000))
 
 #define BUDDY_BITMAP_SIZE (2*4096)
 

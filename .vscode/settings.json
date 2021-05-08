@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "*.c": "c",
+        "riscv.h": "c",
+        "dmac.h": "c",
+        "fpioa.h": "c",
+        "stdlib.h": "c",
+        "sysctl.h": "c",
+        "plic.h": "c",
+        "types.h": "c",
+        "vm.h": "c",
+        "utils.h": "c",
+        "memlayout.h": "c",
+        "buddy.h": "c",
+        "sched.h": "c",
+        "rustsbi.h": "c"
+    }
+}

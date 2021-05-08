@@ -1,26 +1,6 @@
 #ifndef RISCV_H
 #define RISCV_H
 
-#include "put.h"
-#include "rustsbi.h"
-#include "types.h"
-#include "rand.h"
-#include "sched.h"
-#include "vm.h"
-#include "string.h"
-
-/* Memory Layout */
-#define SBIBASE         0x80000000UL
-#define SBISIZE         0x20000UL
-#define KERNELBASE      0x80020000UL
-#define KERNELEND       0x80200000UL
-#define KERNELSIZE      0x1FE000UL
-#define MEM_END         0x80600000UL
-#define MEM_SIZE        (MEM_END-KERNELBASE)
-
-#define SBI_HIGH_BASE       0xffffffe000000000UL
-#define KERNEL_HIGH_BASE    0xffffffe000020000UL
-
 /* Some Exception */
 #define S_TIME  5
 #define M_TIME  7
@@ -65,6 +45,30 @@
 #define r_reg(reg, para) asm("addw %0, " #reg ", x0":"=r"(para))
 #define w_reg(reg, para) asm("addw" #reg ", %0, x0"::"r"(para))
 
-/* Stack Struct */
+/* Operations on memory */
+#define readb(addr) (*(volatile uint8 *)(addr))
+#define readw(addr) (*(volatile uint16 *)(addr))
+#define readd(addr) (*(volatile uint32 *)(addr))
+#define readq(addr) (*(volatile uint64 *)(addr))
+
+#define writeb(v, addr)                      \
+    {                                        \
+        (*(volatile uint8 *)(addr)) = (v); \
+    }
+#define writew(v, addr)                       \
+    {                                         \
+        (*(volatile uint16 *)(addr)) = (v); \
+    }
+#define writed(v, addr)                       \
+    {                                         \
+        (*(volatile uint32 *)(addr)) = (v); \
+    }
+#define writeq(v, addr)                       \
+    {                                         \
+        (*(volatile uint64 *)(addr)) = (v); \
+    }
+
+
+
 
 #endif

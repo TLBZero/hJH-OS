@@ -9,7 +9,7 @@ _start:
 	li t0, 0x40122
 	csrs sstatus, t0
 
-	# set sie[ssie], sie[stie[ = 1
+	# set sie[ssie], sie[stie] = 1
 	li t0, 0x22
 	csrs sie, t0
 

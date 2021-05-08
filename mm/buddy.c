@@ -1,25 +1,31 @@
+#include "vm.h"
 #include "riscv.h"
+#include "memlayout.h"
 
 struct buddy Buddy;
 unsigned buddy_bitmap[BUDDY_BITMAP_SIZE];
 
 /**
- * init_buddy_system() - Initialize buddy system
+ * @brief Initialize buddy system
  */
 void init_buddy_system(void)
 {
     Buddy.bitmap = buddy_bitmap;
-    //This is a huge problem
-    Buddy.size = 0x400;
+    Buddy.size = (MEM_SIZE>>PAGE_SHIFT);
+
+    #ifdef DEBUG
+    printf("[init_buddy_system]Buddy.size:%x\n", Buddy.size);
+    #endif
+
     for (uint size = Buddy.size, num = 1, i = 0; size > 0; size /= 2, num *= 2)
         for (int j = 0; j < num; j++)
             Buddy.bitmap[i++] = size;
-    alloc_pages(PAGENUM_ROUNDUP((void *)_end - (void *)KERNELBASE));
+    alloc_pages(PAGENUM_ROUNDUP((void *)_end - (void *)SBIBASE));
 }
 
 /**
- * next_pow_of_2() - align up to power of 2
- * @x: number needed to align up.
+ * @brief align up to power of 2
+ * @param x: number needed to align up.
  */
 static inline uint64 next_pow_of_2(uint64 x){
 	if(IS_POW_OF_2(x)) return x;
@@ -48,9 +54,9 @@ static inline uint64 get_X_of_va(void *va){
 
 
 /**
- * alloc_pages() - This function will allocate int number of physical continuous memory space and return the VA start;
- *                 If no matched frames, return null(0);
- * @num: number of continuous physical frames needed.
+ * @brief This function will allocate int number of physical continuous memory space and return the VA start;
+ *        If no matched frames, return null(0);
+ * @param num: number of continuous physical frames needed.
  */
 void *alloc_pages(int num)
 {
@@ -62,20 +68,20 @@ void *alloc_pages(int num)
     }
     void* va = get_va_of_pageX(search);
     Buddy.bitmap[search] = 0;
-    //trace back and set parent's bitmap.
+    /* trace back and set parent's bitmap. */
     int trace = search;
     while (trace)
     {
         trace=PARENT(trace);
         Buddy.bitmap[trace] = ((Buddy.bitmap[LEFT_CHILD(trace)])>(Buddy.bitmap[RIGHT_CHILD(trace)]))?(Buddy.bitmap[LEFT_CHILD(trace)]):(Buddy.bitmap[RIGHT_CHILD(trace)]);
     }
-    kprintf("[alloc_pages]va:%p, pa:%p\n", va, VA_TO_PA((uint64)va));
+    printf("[alloc_pages]va:%p, pa:%p\n", va, K_VA2PA((uint64)va));
     return va;
 }
 
 /**
- * free_pages() - This function will free VA and merge it back;
- * @VA: Virtual Address to be freed.
+ * @brief This function will free VA and merge it back;
+ * @param VA: Virtual Address to be freed.
  */
 void free_pages(void * VA){
     int index = get_X_of_va(VA)+Buddy.size-1;
@@ -83,7 +89,7 @@ void free_pages(void * VA){
     while(Buddy.bitmap[index]) index=PARENT(index), currentSize*=2;
     Buddy.bitmap[index]=currentSize;
 
-    //trace back and set parent's bitmap
+    /* trace back and set parent's bitmap */
     while(index){
         index = PARENT(index);
         if((Buddy.bitmap[LEFT_CHILD(index)]==currentSize)&&(Buddy.bitmap[RIGHT_CHILD(index)]==currentSize))

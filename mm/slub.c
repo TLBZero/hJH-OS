@@ -1,4 +1,6 @@
 #include "riscv.h"
+#include "vm.h"
+
 enum{
 	PAGE_FREE,
 	PAGE_BUDDY,
@@ -168,7 +170,7 @@ void *cache_create(const char *name, size_t size, unsigned int aligns, int flags
 	s->nr_partial = 0;
 
 	s->tid = cache_tid++;
-	kprintf("[S] Create New cache: name:%s    	size: %x, align: %x\n", name, size, aligns);
+	printf("[S] Create New cache: name:%s    	size: %x, align: %x\n", name, size, aligns);
 	return s;
 }
 
@@ -179,7 +181,7 @@ void *cache_alloc_pages(struct kmem_cache *cache)
 	struct page *page;
 
 	p = alloc_pages(cache->nr_page_per_slub);
-	kprintf("[cache_alloc_pages]p:%p\n", p);
+	printf("[cache_alloc_pages]p:%p\n", p);
 	if(p == NULL) return NULL;
 
 	memset(p, 0, (cache->nr_page_per_slub) << PAGE_SHIFT);
@@ -224,7 +226,7 @@ kmem_cache_create(const char *name, size_t size,
 	const char *cache_name;
 
 	s = cache_create(name, size, aligns, flags, func);
-	kprintf("[kmem_cache_create]s:%p\n", s);
+	printf("[kmem_cache_create]s:%p\n", s);
 	if(cache_alloc_pages(s) == NULL){
 		free_slub_structure(s);
 		return NULL;
@@ -319,8 +321,10 @@ void *kmalloc(size_t size)
 	for(objindex = 0; objindex < NR_PARTIAL; objindex ++){
 		if(size<=kmem_cache_objsize[objindex]){
 			p = kmem_cache_alloc(slub_allocator[objindex]);
-			kprintf("[S] kmem_cache_alloc: name: %s\n", slub_allocator[objindex]->name);
-			kprintf("addr: %p, partial_obj_count: %d\n",(void*)slub_allocator[objindex], (ADDR_TO_PAGE(p)->header)->count);
+			#ifdef DEBUG
+			printf("[S] kmem_cache_alloc: name: %s\n", slub_allocator[objindex]->name);
+			printf("addr: %p, partial_obj_count: %d\n",(void*)slub_allocator[objindex], (ADDR_TO_PAGE(p)->header)->count);
+			#endif
 			break;
 		}
 	}
@@ -329,8 +333,11 @@ void *kmalloc(size_t size)
 	if(objindex >= NR_PARTIAL){
         p = alloc_pages(PAGENUM_ROUNDUP(size));
         set_page_attr(p, (size-1) / PAGE_SIZE, PAGE_BUDDY);
-		kprintf("[S] Buddy allocate addr: %p\n", p);
+		#ifdef DEBUG
+		printf("[S] Buddy allocate addr: %p\n", p);
+		#endif
 	}
+	
     return p;
 }
 

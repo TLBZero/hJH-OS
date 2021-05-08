@@ -3,10 +3,11 @@
 
 #include "list.h"
 #include "vm.h"
+#include "memlayout.h"
 
 #define NR_PARTIAL 9
 #define STRUCTURE_SIZE 16UL
-#define VM_START 0xffffffe000020000UL
+#define VM_START KERNEL_HIGH_BASE
 
 extern void *page_base;
 struct page {

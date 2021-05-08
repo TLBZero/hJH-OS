@@ -14,7 +14,7 @@ static char itoch(int x)
     if (x >= 0 && x <= 9) return (char)(x + 48);
     return 0;
 }
-void puti(int x)
+static void puti(int x)
 {
     int digit = 1, tmp = x;
     while (tmp >= 10)
@@ -68,7 +68,7 @@ static void printint(int xx, int base, int sign)
         putchar(buf[i]);
 }
 
-void kprintf(char *fmt, ...)
+void printf(char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -95,4 +95,16 @@ void kprintf(char *fmt, ...)
         fmt++;
     }
     va_end(ap);
+}
+
+
+void print_logo(){
+	printf(".__            .___________.   .__        __.\n\
+|  |           |___.   .___|   |  |      |  |\n\
+|  |               |   |       |  |      |  |\n\
+|  `.-----.        |   |       |  `------‘  |\n\
+|   .___   \\       |   |       |    _____   |\n\
+|  /    |  |       |   |       |   /     \\  |\n\
+|  |    |  |    ._/   /        |  |      |  |\n\
+|__|    |__|   /_____/         |__|      |__|\n");
 }

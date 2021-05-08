@@ -1,4 +1,8 @@
 #include "riscv.h"
+#include "sched.h"
+#include "put.h"
+#include "vm.h"
+
 #ifdef SJF
     #define COUNTER(N) (N ? rand() : 0)
 #endif
@@ -24,10 +28,10 @@ void task_init(void){
 		task[i]->thread.sp=(unsigned long long)task[i]+TASK_SIZE;
 		task[i]->thread.ra=(unsigned long long)&first_switch_to;
 #ifdef SJF
-		kprintf("[PID = %d] Process Create Successfully! counter = %d\n",task[i]->pid, task[i]->counter);
+		printf("[PID = %d] Process Create Successfully! counter = %d\n",task[i]->pid, task[i]->counter);
 #endif
 #ifdef PRIORITY
-		kprintf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
+		printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 #endif
 	}
 	current = task[0];
@@ -35,7 +39,7 @@ void task_init(void){
 
 void do_timer(void){
 #ifdef SJF
-	kprintf("[PID = %d] Context Calculation: counter = %d\n",current->pid, current->counter);
+	printf("[PID = %d] Context Calculation: counter = %d\n",current->pid, current->counter);
 	if(current->counter<=0||--current->counter<=0){
 		schedule();
 	}
@@ -43,7 +47,7 @@ void do_timer(void){
 #ifdef PRIORITY
 	if(current->pid!=0&&(current->counter<=0||--current->counter<=0)){
 		task[current->pid]->counter=(8-current->pid>0)?8-current->pid:0;//if process ended, initialize it again
-		kprintf("[PID = %d] Reset counter = %d, priority = %d\n", current->pid, current->counter, current->priority);
+		printf("[PID = %d] Reset counter = %d, priority = %d\n", current->pid, current->counter, current->priority);
 	}
 	schedule();
 #endif
@@ -69,7 +73,7 @@ void schedule(void){
 		if(c>0) break;
 		for(int i=1;i<=LAB_TEST_NUM;i++){
 			task[i]->counter=rand();
-			kprintf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
+			printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
 		}
 #endif
 #ifdef PRIORITY
@@ -85,13 +89,13 @@ void schedule(void){
 		if(c>0)break;
 #endif
 	}
-	if(current!=task[next]) kprintf("[!] Switch from task %d [task struct: %p, sp: %p] to task %d [task struct: %p, sp: %p], prio: %d, counter: %d\n",current->pid,(uint64)current,current->thread.sp,task[next]->pid,(uint64)task[next],task[next]->thread.sp,task[next]->priority, task[next]->counter);
+	if(current!=task[next]) printf("[!] Switch from task %d [task struct: %p, sp: %p] to task %d [task struct: %p, sp: %p], prio: %d, counter: %d\n",current->pid,(uint64)current,current->thread.sp,task[next]->pid,(uint64)task[next],task[next]->thread.sp,task[next]->priority, task[next]->counter);
 
 #ifdef PRIORITY
 	puts("task's priority changed\n");
 	for(int i=1;i<=LAB_TEST_NUM;i++){
 		task[i]->priority=rand();
-		kprintf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
+		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 #endif
 	switch_to(task[next]);

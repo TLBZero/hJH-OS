@@ -1,6 +1,6 @@
 OBJS=$(wildcard ../../../build/*.o)
 
-kernel:head.o entry.o strap.o sched.o vm.o
+kernel:head.o entry.o strap.o sched.o vm.o sysctl.o
 
 head.o:
 	$(GCC) $(CFLAG) -c head.S -o ../../../build/head.o
@@ -16,6 +16,9 @@ sched.o:
 
 vm.o:
 	$(GCC) $(CFLAG) -c vm.c -o ../../../build/vm.o
+
+sysctl.o:
+	$(GCC) $(CFLAG) -c sysctl.c -o ../../../build/sysctl.o
 
 vmlinux:vmlinux.lds $(OBJS)
 	$(LD) -T vmlinux.lds $(OBJS) -o ../../../vmlinux
