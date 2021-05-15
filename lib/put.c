@@ -9,27 +9,6 @@ int puts(const char *s)
     }
     return 0;
 }
-static char itoch(int x)
-{
-    if (x >= 0 && x <= 9) return (char)(x + 48);
-    return 0;
-}
-static void puti(int x)
-{
-    int digit = 1, tmp = x;
-    while (tmp >= 10)
-    {
-        digit *= 10;
-        tmp /= 10;
-    }
-    while (digit >= 1)
-    {
-        console_putchar(itoch(x/digit));
-        x %= digit;
-        digit /= 10;
-    }
-    return;
-}
 
 void putchar(const char ch){
     console_putchar(ch);
@@ -51,21 +30,17 @@ static void printint(int xx, int base, int sign)
     int i;
     unsigned int x;
 
-    if(sign && (sign = xx < 0))
-        x = -xx;
-    else
-        x = xx;
+    if(sign && (sign = xx < 0)) x = -xx;
+    else x = xx;
 
     i = 0;
     do {
         buf[i++] = hex[x % base];
     } while((x /= base) != 0);
 
-    if(sign)
-        buf[i++] = '-';
+    if(sign) buf[i++] = '-';
 
-    while(--i >= 0)
-        putchar(buf[i]);
+    while(--i >= 0) putchar(buf[i]);
 }
 
 void printf(char *fmt, ...)
@@ -97,6 +72,11 @@ void printf(char *fmt, ...)
     va_end(ap);
 }
 
+void panic(const char *s)
+{
+    printf("[Kernel Panic]: %s\n", s);
+    while(1);
+}
 
 void print_logo(){
 	printf(".__            .___________.   .__        __.\n\

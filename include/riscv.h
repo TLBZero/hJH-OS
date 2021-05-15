@@ -1,5 +1,4 @@
-#ifndef RISCV_H
-#define RISCV_H
+#pragma once
 
 /* Some Exception */
 #define S_TIME  5
@@ -67,8 +66,3 @@
     {                                         \
         (*(volatile uint64 *)(addr)) = (v); \
     }
-
-
-
-
-#endif

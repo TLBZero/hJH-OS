@@ -10,6 +10,7 @@ int puts(const char *s);
 void putchar(const char ch);
 void printf(char *fmt, ...);
 void print_logo();
+void panic(const char *s);
 
 #endif
 

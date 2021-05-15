@@ -2,6 +2,7 @@
 #include "types.h"
 #include "vm.h"
 #include "sysctl.h"
+#include "memlayout.h"
 
 pagetable_t kernel_pagetable=NULL;
 
@@ -49,7 +50,6 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
  * @brief Initialize pages for later uses
  */
 void paging_init(){
-
     sysctl_pll_enable(SYSCTL_PLL1);
     sysctl_clock_enable(SYSCTL_CLOCK_PLL1);
     
@@ -59,6 +59,38 @@ void paging_init(){
     init_buddy_system();
 
     kernel_pagetable = (pagetable_t) K_VA2PA((uint64)alloc_pages(1));
+    memset(kernel_pagetable, 0, PAGE_SIZE);
+
+    //UART
+    create_mapping(kernel_pagetable, UARTHS_BASE_ADDR, UARTHS_BASE_ADDR, PAGE_SIZE, PTE_R | PTE_W);
+    //CLINT
+    create_mapping(kernel_pagetable, CLINT_BASE_ADDR, CLINT_BASE_ADDR, 0x10000, PTE_R | PTE_W);
+    // PLIC
+    create_mapping(kernel_pagetable, PLIC_BASE_ADDR, PLIC_BASE_ADDR, 0x4000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, PLIC_BASE_ADDR + 0x200000, PLIC_BASE_ADDR + 0x200000, 0x4000, PTE_R | PTE_W);
+    // GPIOHS
+    create_mapping(kernel_pagetable, GPIOHS_BASE_ADDR, GPIOHS_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    // DMAC
+    create_mapping(kernel_pagetable, DMAC_BASE_ADDR, DMAC_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+
+    // SPI_SLAVE
+    create_mapping(kernel_pagetable, SPI_SLAVE_BASE_ADDR, SPI_SLAVE_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+
+    // FPIOA
+    create_mapping(kernel_pagetable, FPIOA_BASE_ADDR, FPIOA_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+
+    // SPI0
+    create_mapping(kernel_pagetable, SPI0_BASE_ADDR, SPI0_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+
+    // SPI1
+    create_mapping(kernel_pagetable, SPI1_BASE_ADDR, SPI1_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+
+    // SPI2
+    create_mapping(kernel_pagetable, SPI3_BASE_ADDR, SPI3_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+
+    // SYSCTL
+    create_mapping(kernel_pagetable, SYSCTL_BASE_ADDR, SYSCTL_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+
 
     create_mapping(kernel_pagetable,SBIBASE,SBIBASE,SBISIZE,PTE_R|PTE_X);
     create_mapping(kernel_pagetable,KERNELBASE,KERNELBASE,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);

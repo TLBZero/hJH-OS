@@ -13,6 +13,12 @@
         "memlayout.h": "c",
         "buddy.h": "c",
         "sched.h": "c",
-        "rustsbi.h": "c"
+        "rustsbi.h": "c",
+        "put.h": "c",
+        "mutex.h": "c",
+        "sdcard.h": "c",
+        "system.h": "c",
+        "string.h": "c",
+        "spinlock.h": "c"
     }
 }
