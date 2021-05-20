@@ -1,10 +1,21 @@
 #include "types.h"
 #include "riscv.h"
+#include "sched.h"
+#include "string.h"
+#include "syscall.h"
+#include "put.h"
 
-void strap_handler(int64 scause, int64 sepc){
+void strap_handler(int64 scause, int64 sepc, uintptr_t *regs){
+	memcpy(current->stack, regs, STACK_SIZE);
 	if(scause>=0){//exception
+		printf("[Exp]\n");
 		scause&=0xff;
 		switch(scause){
+			case U_ECALL:{
+				syscall(regs);
+				w_csr(sepc, sepc+4);
+				break;
+			}
 			case INSTRUCTION_PAGE_FAULT:{
 				printf("[S-Error!]Instruction page fault!\n");
 				while(1);

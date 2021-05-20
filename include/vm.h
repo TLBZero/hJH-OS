@@ -30,6 +30,9 @@
 #define PROT_READ	0x1	//页内容可以被读取
 #define PROT_WRITE	0x2	//页可以被写入内容
 #define PROT_EXEC	0x4	//页内容可以被执行
+#define PROT_SEM    0x8 //
+#define PROT_GROWSDOWN  0x01000000  //
+#define PROT_GROWSUP    0x02000000  //
 
 /* shift a physical address to the right place for a PTE. */
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
@@ -51,6 +54,11 @@ typedef uint64 pte_t;       //0-level table
 void paging_init();
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm);
 pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc);
+
+// void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot);
+int munmap(void *start, size_t len);
+void *mmap(void *start, size_t len, int prot, int flags,
+                  int fd, off_t off);
 
 extern pagetable_t kernel_pagetable;
 

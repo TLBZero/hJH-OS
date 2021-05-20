@@ -1,5 +1,7 @@
 #pragma once
 
+#define USER_END 0xffffffdf80000000UL
+
 /* Some Exception */
 #define S_TIME  5
 #define M_TIME  7
@@ -44,6 +46,13 @@
 #define r_reg(reg, para) asm("addw %0, " #reg ", x0":"=r"(para))
 #define w_reg(reg, para) asm("addw" #reg ", %0, x0"::"r"(para))
 
+/* Stack Struct */
+#define REG_X(num) num
+#define REG_A(num) 10+num
+#define SSTATUS 0
+#define SSCRATCH 1
+#define SCAUSE 2
+#define SEPC 3
 /* Operations on memory */
 #define readb(addr) (*(volatile uint8 *)(addr))
 #define readw(addr) (*(volatile uint16 *)(addr))

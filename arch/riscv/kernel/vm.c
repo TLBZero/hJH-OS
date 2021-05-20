@@ -2,6 +2,7 @@
 #include "types.h"
 #include "vm.h"
 #include "sysctl.h"
+#include "sched.h"
 #include "memlayout.h"
 
 pagetable_t kernel_pagetable=NULL;
@@ -50,6 +51,7 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
  * @brief Initialize pages for later uses
  */
 void paging_init(){
+
     sysctl_pll_enable(SYSCTL_PLL1);
     sysctl_clock_enable(SYSCTL_CLOCK_PLL1);
     
@@ -59,6 +61,7 @@ void paging_init(){
     init_buddy_system();
 
     kernel_pagetable = (pagetable_t) K_VA2PA((uint64)alloc_pages(1));
+    
     memset(kernel_pagetable, 0, PAGE_SIZE);
 
     //UART
@@ -109,4 +112,101 @@ void paging_init(){
 
     slub_init();
     return;
+}
+
+unsigned long get_unmapped_area(size_t length){
+    void *start=0;
+    int i,n=(length>>PAGE_SHIFT);
+    while(1){
+        for(i=0;i<n;i++){
+            if((((uint64)walk(current->mm->pagetable_address, start+PAGE_SIZE*i, 0))&PTE_V)==0) break;
+        }
+        if(i==n) break;
+        start=start+PAGE_SIZE*(i+1);
+    } 
+    return start;
+}
+
+void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
+    //Code to fetch an non-mapped address
+    void *astart=start;
+    size_t alength = PAGE_ROUNDUP(len);
+    int i;
+    for(i=0;i<(alength>>PAGE_SHIFT);i++){
+        if(((uint64) walk(mm->pagetable_address, astart+PAGE_SIZE*i, 0))&PTE_V != 0) break;
+    }
+    if(i!=(alength>>PAGE_SHIFT)) astart=get_unmapped_area(alength);
+
+    struct vm_area_struct* newVMA= (struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
+    newVMA->vm_start=astart;
+    newVMA->vm_end=astart+alength;
+    newVMA->vm_flags=prot;
+    newVMA->vm_mm=mm;
+    //insert
+    if(mm->vma){
+        newVMA->vm_prev=mm->vma;
+        newVMA->vm_next=mm->vma->vm_next;
+        mm->vma->vm_next->vm_prev=newVMA;
+        mm->vma->vm_next=newVMA;
+    }
+    else{
+        mm->vma=newVMA;
+        newVMA->vm_prev=newVMA;
+        newVMA->vm_next=newVMA;
+    }
+    printf("[S] New vm_area_struct: start %p, end %p, prot [r:%d,w:%d,x:%d]\n",newVMA->vm_start, newVMA->vm_end, (prot&PROT_READ)!=0, (prot&PROT_WRITE)!=0, (prot&PROT_EXEC)!=0);
+    return astart;
+}
+
+void *mmap(void *start, size_t len, int prot, int flags,
+                  int fd, off_t off)
+{
+    return do_mmap(current->mm, start, len, prot);
+}
+
+void free_page_tables(uint64 pagetable, uint64 va, uint64 n, int free_frame){
+    pte_t* pte;
+    uint64 pa;
+    for(int i=0;i<n;i++){
+        pte=walk(pagetable, va, 0);
+        pa = PTE2PA(*pte)+VA_OFFSET(va);
+        *pte=0;
+
+        if(free_frame) kfree(K_PA2VA(pa));//Free frames
+        va+=PAGE_SHIFT;
+    }
+    return;
+}
+
+int munmap(void *start, size_t len)
+{
+    size_t alength = PAGE_ROUNDUP(len);
+    void *end = start+alength;
+    struct vm_area_struct *vma=current->mm->vma;
+    uint64 va = 0;
+
+    if(!vma) return -1;
+    do {
+        if (vma->vm_start==start&&vma->vm_end==end)
+        {
+            va=start;
+            free_page_tables(current->mm->pagetable_address, va, alength>>PAGE_SHIFT, 1);
+            struct vm_area_struct *next = vma->vm_next;
+            struct vm_area_struct *prev = vma->vm_prev;
+            if(next==vma)
+                current->mm->vma=0;
+            else {
+                if (current->mm->vma==vma)
+                    current->mm->vma = next;
+                next->vm_prev = prev;
+                prev->vm_next = next;
+            }
+            kfree(vma);
+            break;
+        }
+        vma=vma->vm_next;
+    }while (vma!=current->mm->vma);
+
+    if (!va) return -1;
+    return 0;
 }

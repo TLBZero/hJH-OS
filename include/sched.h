@@ -1,6 +1,8 @@
 #pragma once
 #include "spinlock.h"
 
+#include "types.h"
+
 #define TASK_SIZE   (4096)
 #define THREAD_OFFSET  (7 * 0x08)
 
@@ -24,7 +26,7 @@
 #define PREEMPT_DISABLE 1
 
 /* Lab3中进程的数量以及每个进程初始的时间片 */
-#define LAB_TEST_NUM        1
+#define LAB_TEST_NUM        4
 #define LAB_TEST_COUNTER    5
 
 /* wait的option */
@@ -33,6 +35,8 @@
 #define WCONTINUED    2
 
 #define TASK_VM_START 0xffffffe000100000L
+
+#define STACK_SIZE 31*8
 
 /* 当前进程 */
 extern struct task_struct *current;
@@ -58,6 +62,28 @@ struct thread_struct {
     unsigned long long s11;
 };
 
+typedef struct { unsigned long pgprot; } pgprot_t;
+
+struct vm_area_struct {
+    /* Our start address within vm_area. */
+    unsigned long vm_start;		
+    /* The first byte after our end address within vm_area. */
+    unsigned long vm_end;		
+    /* linked list of VM areas per task, sorted by address. */
+    struct vm_area_struct *vm_next, *vm_prev;
+    /* The address space we belong to. */
+    struct mm_struct *vm_mm;	
+    /* Access permissions of this VMA. */
+    pgprot_t vm_page_prot;
+    /* Flags*/
+    unsigned long vm_flags;	
+};
+
+struct mm_struct {
+    uint64 pagetable_address;
+    struct vm_area_struct *vma;
+};
+
 /* 进程数据结构 */
 struct task_struct {
     long state;    // 进程状态 Lab3中进程初始化时置为TASK_RUNNING
@@ -65,9 +91,18 @@ struct task_struct {
     long priority; // 运行优先级 1最高 5最低
     long blocked;
     long pid;      // 进程标识符
- 	long ppid;
+    long ppid;
     long xstate;
     struct thread_struct thread; // 该进程状态段
+
+    pid_t tid;
+    pid_t ptid;
+
+    size_t sepc;
+    size_t sscratch;
+    struct mm_struct *mm;
+    uint64* stack;
+    uint64 allocated_stack;
     void *chan;
 	struct spinlock lk;
 };
@@ -86,6 +121,9 @@ void switch_to(struct task_struct* next);
 
 /* 死循环 */
 void dead_loop(void);
+
+/* clone */
+pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid);
 
 /* 当其他进程获得该睡眠锁之后，此进程进入睡眠状态 */
 void sleep(void*, struct spinlock*);

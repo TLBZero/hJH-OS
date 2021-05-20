@@ -1,4 +1,5 @@
 #include "test.h"
+#include "put.h"
 
 int os_test()
 {

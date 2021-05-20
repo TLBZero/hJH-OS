@@ -17,7 +17,6 @@
 #include "sysctl.h"
 #include "utils.h"
 #include "memlayout.h"
-
 #define GPIOHS_MAX_PINNO 32
 
 volatile gpiohs_t *const gpiohs = (volatile gpiohs_t *)GPIOHS_BASE_ADDR;

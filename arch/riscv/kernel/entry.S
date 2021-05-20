@@ -3,18 +3,21 @@
 .align 2
 .global trap_s
 
+.equ FRAMESIZE, 300
+
 trap_s:
         save_all
 
-	csrr a0, scause
+		csrr a0, scause
         csrr a1, sepc
-	call strap_handler
+        mv a2, sp
+		call strap_handler
 
         csrr t0, time
         li t1, 0xA00000
         addw a0, t0, t1
         li a7, 0
-	ecall                   # sbi_set_timer
+	ecall                   # sbi_set_timermake
 
         load_all
 	sret
@@ -43,5 +46,55 @@ ret
 .type first_switch_to,@function
 first_switch_to:
 	la t0, dead_loop
+	# li t0, 0x100
+	# csrc sstatus, t0
+	# la t0, 0
+	# csrw sepc, t0
+sret
+
+.global ret_from_fork
+.type ret_from_fork, @function
+//a0 => *stack
+ret_from_fork:
+	ld t0, 0(a0)
+	csrw sstatus, t0
+	# skip loading ssratch from stack
+	ld t0, 16(a0)
+	csrw scause, t0
+	ld t0, 24(a0)
 	csrw sepc, t0
+	ld x31, 32(a0)
+	ld x30, 40(a0)
+	ld x29, 48(a0)
+	ld x28, 56(a0)
+	ld x27, 64(a0)
+	ld x26, 72(a0)
+	ld x25, 80(a0)
+	ld x24, 88(a0)
+	ld x23, 96(a0)
+	ld x22, 104(a0)
+	ld x21, 112(a0)
+	ld x20, 120(a0)
+	ld x19, 128(a0)
+	ld x18, 136(a0)
+	ld x17, 144(a0)
+	ld x16, 152(a0)
+	ld x15, 160(a0)
+	ld x14, 168(a0)
+	ld x13, 176(a0)
+	ld x12, 184(a0)
+	ld x11, 192(a0)
+	# a0 shall be loaded at last
+	ld x9, 208(a0)
+	ld x8, 216(a0)
+	ld x7, 224(a0)
+	ld x6, 232(a0)
+	ld x5, 240(a0)
+	ld x4, 248(a0)
+	ld x3, 256(a0)
+	# skip load sp from stack
+	ld x1, 272(a0)
+	csrrw sp, sscratch, sp
+	
+	ld x10, 200(a0)
 sret

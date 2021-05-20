@@ -6,6 +6,10 @@
 #include "sdcard.h"
 #include "fpioa.h"
 #include "dmac.h"
+#include "sched.h"
+#include "put.h"
+#include "vm.h"
+#include "string.h"
 
 struct task_struct* current;
 struct task_struct* task[NR_TASKS];
@@ -24,6 +28,7 @@ void task_init(void){
 	task[0]->blocked=0;
 	task[0]->pid=0;
 	task[0]->ppid=0;
+	task[0]->stack = (uint64)kmalloc(sizeof(STACK_SIZE));
 	task[0]->xstate=-1;
 	task[0]->chan=0;
 	initlock(&(task[0]->lk), "proc");
@@ -42,6 +47,21 @@ void task_init(void){
 		task[i]->blocked=0;
 		task[i]->pid=i;
 		task[i]->ppid=0;
+
+		task[i]->stack = (uint64)kmalloc(STACK_SIZE);
+		task[i]->allocated_stack = 0;
+
+		task[i]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
+		task[i]->mm->pagetable_address = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+		memcpy(task[i]->mm->pagetable_address, kernel_pagetable, PAGE_SIZE);
+
+		// do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
+		// do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
+
+		// create_mapping(task[i]->mm->pagetable_address, 0, dead_loop, TASK_SIZE, PTE_R|PTE_W|PTE_X|PTE_U);
+		// create_mapping(task[i]->mm->pagetable_address, USER_END-PAGE_SIZE*i,kmalloc(PAGE_SIZE),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+
+		task[i]->sscratch = (void*)task[i]+PAGE_SIZE;
 		task[i]->xstate=-1;
 		task[i]->chan=0;
 		initlock(&(task[i]->lk), "proc");
@@ -132,12 +152,78 @@ void switch_to(struct task_struct* next){
 
 /*  */
 void dead_loop(void){
-	fpioa_pin_init();
-	dmac_init();
-	sdcard_init();
-	test_sdcard();
+	// fpioa_pin_init();
+	// dmac_init();
+	// sdcard_init();
+	// test_sdcard();
 	while(1);
 }
+
+uint64 alloc_pid()
+{
+	// static uint64 currentPID = LAB_TEST_NUM;
+	// return ++currentPID;
+	for (int i=1; i<NR_TASKS; i++)
+		if (task[i]==NULL)
+			return i;
+}
+
+void forket(){
+	ret_from_fork(current->stack);
+}
+
+pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
+{
+	uint64 child=alloc_pid();
+	if (child < 0) return -1;
+	task[child]=(struct task_struct*)kmalloc(PAGE_SIZE);
+	task[child]->state=TASK_RUNNING;
+	task[child]->counter=rand();
+	task[child]->priority=5;
+	task[child]->blocked=0;
+	task[child]->pid=child;
+	task[child]->ppid=current->pid;
+	if (stack!=NULL)
+		task[child]->stack=stack;
+	else
+		task[child]->stack=(uint64*)kmalloc(STACK_SIZE);
+	memcpy(task[child]->stack, current->stack, STACK_SIZE);
+	task[child]->stack[REG_A(0)] = 0;
+	task[child]->stack[SEPC] += 4;
+
+	task[child]->mm=(struct mm_struct*)kmalloc(sizeof(struct mm_struct));
+	struct vm_area_struct *parentVMA=current->mm->vma, *childVMA;
+	if (parentVMA) do {
+		childVMA=(struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
+		memcpy(childVMA, parentVMA, sizeof(struct vm_area_struct));
+		if(task[child]->mm->vma) {
+			childVMA->vm_prev=task[child]->mm->vma;
+			childVMA->vm_next=task[child]->mm->vma->vm_next;
+			task[child]->mm->vma->vm_next->vm_prev=childVMA;
+			task[child]->mm->vma->vm_next=childVMA;
+		}
+		else {
+			task[child]->mm->vma=childVMA;
+			childVMA->vm_prev=childVMA;
+			childVMA->vm_next=childVMA;
+		}
+		parentVMA=parentVMA->vm_next;
+	}while(parentVMA!=current->mm->vma);
+
+	task[child]->mm->pagetable_address=K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	memcpy(task[child]->mm->pagetable_address, kernel_pagetable, PAGE_SIZE);
+
+	task[child]->sscratch=task[child]->stack[SSCRATCH];
+	task[child]->thread.sp=(void*)task[child]+PAGE_SIZE;
+	task[child]->allocated_stack = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	memcpy((void*)task[child]->allocated_stack, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE);
+
+	task[child]->thread.ra=(unsigned long long)&forket;
+
+	printf("[PID = %d] Process fork from [PID = %d] Successfully! counter = %d\n",task[child]->pid,current->pid,task[child]->counter);
+	return task[child]->pid;
+}
+
 /* 返回当前进程的pid*/
 long getpid(void){
 	return current->pid;

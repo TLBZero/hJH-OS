@@ -1,6 +1,6 @@
 OBJS=$(wildcard ../../../build/*.o)
 
-kernel:head.o entry.o strap.o sched.o vm.o sysctl.o buffer.o dmac.o fpioa.o gpiohs.o sdcard.o sleeplock.o spi.o spinlock.o utils.o
+kernel:head.o entry.o strap.o sched.o vm.o sysctl.o buffer.o dmac.o fpioa.o gpiohs.o sdcard.o sleeplock.o spi.o spinlock.o utils.o syscall.o sysproc.o
 
 head.o:
 	$(GCC) $(CFLAG) -c head.S -o ../../../build/head.o
@@ -20,6 +20,11 @@ vm.o:
 sysctl.o:
 	$(GCC) $(CFLAG) -c sysctl.c -o ../../../build/sysctl.o
 
+syscall.o:
+	$(GCC) $(CFLAG) -c syscall.c -o ../../../build/syscall.o
+
+sysproc.o:
+	$(GCC) $(CFLAG) -c sysproc.c -o ../../../build/sysproc.o
 dmac.o:
 	$(GCC) $(CFLAG) -c dmac.c -o ../../../build/dmac.o
 
