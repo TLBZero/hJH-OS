@@ -21,30 +21,22 @@ void set_bit(volatile uint32 *bits, uint32 mask, uint32 value)
     *bits = org | (value & mask);
 }
 
-void set_bit_offset(volatile uint32 *bits, uint32 mask, size_t offset, uint32 value)
+void set_bit_offset(volatile uint32 *bits, uint32 mask, uint64 offset, uint32 value)
 {
     set_bit(bits, mask << offset, value << offset);
 }
 
-void set_gpio_bit(volatile uint32 *bits, size_t offset, uint32 value)
+void set_gpio_bit(volatile uint32 *bits, uint64 offset, uint32 value)
 {
     set_bit_offset(bits, 1, offset, value);
 }
 
-uint32 get_bit(volatile uint32 *bits, uint32 mask, size_t offset)
+uint32 get_bit(volatile uint32 *bits, uint32 mask, uint64 offset)
 {
     return ((*bits) & (mask << offset)) >> offset;
 }
 
-uint32 get_gpio_bit(volatile uint32 *bits, size_t offset)
+uint32 get_gpio_bit(volatile uint32 *bits, uint64 offset)
 {
     return get_bit(bits, 1, offset);
 }
-
-uint32 is_memory_cache(uintptr_t address)
-{
-    #define MEM_CACHE_LEN (6 * 1024 * 1024)
-
-    return ((address >= 0x80000000) && (address < 0x80000000 + MEM_CACHE_LEN));
-}
-

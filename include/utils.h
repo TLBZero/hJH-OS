@@ -15,16 +15,7 @@
 #ifndef _DRIVER_UTILS_H
 #define _DRIVER_UTILS_H
 
-// #ifdef __cplusplus
-// #include <cstdbool>
-// #include <cstddef>
-// #include <cstdint>
-// #else /* __cplusplus */
-// #include <stdbool.h>
-// #include <stddef.h>
-// #include <stdint.h>
-// #include <stdio.h>
-// #endif /* __cplusplus */
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,8 +23,6 @@ extern "C" {
 
 #define KENDRYTE_MIN(a, b) ((a) > (b) ? (b) : (a))
 #define KENDRYTE_MAX(a, b) ((a) > (b) ? (a) : (b))
-
-#define FIX_CACHE 1
 
 #ifdef __ASSEMBLY__
 #define KENDRYTE_CAST(type, ptr) ptr
@@ -284,13 +273,6 @@ extern "C" {
 #define kendryte_replbits_dword(dest, msk, src) \
     (kendryte_write_dword(dest, (kendryte_read_dword(dest) & ~(msk)) | ((src) & (msk))))
 
-#define configASSERT(x)                                   \
-    if((x) == 0)                                          \
-    {                                                     \
-        printf("(%s:%d) %s\r\n", __FILE__, __LINE__, #x); \
-        for(;;)                                           \
-            ;                                             \
-    }
 
 /**
  * @brief       Set value by mask
@@ -309,7 +291,7 @@ void set_bit(volatile uint32 *bits, uint32 mask, uint32 value);
  * @param[in]   offset      Mask's offset
  * @param[in]   value       The value to set
  */
-void set_bit_offset(volatile uint32 *bits, uint32 mask, size_t offset, uint32 value);
+void set_bit_offset(volatile uint32 *bits, uint32 mask, uint64 offset, uint32 value);
 
 /**
  * @brief       Set bit for gpio, only set one bit
@@ -318,7 +300,7 @@ void set_bit_offset(volatile uint32 *bits, uint32 mask, size_t offset, uint32 va
  * @param[in]   idx         Offset value
  * @param[in]   value       The value to set
  */
-void set_gpio_bit(volatile uint32 *bits, size_t idx, uint32 value);
+void set_gpio_bit(volatile uint32 *bits, uint64 idx, uint32 value);
 
 /**
  * @brief      Get bits value of mask
@@ -329,7 +311,7 @@ void set_gpio_bit(volatile uint32 *bits, size_t idx, uint32 value);
  *
  * @return      The bits value of mask
  */
-uint32 get_bit(volatile uint32 *bits, uint32 mask, size_t offset);
+uint32 get_bit(volatile uint32 *bits, uint32 mask, uint64 offset);
 
 /**
  * @brief       Get a bit value by offset
@@ -340,9 +322,8 @@ uint32 get_bit(volatile uint32 *bits, uint32 mask, size_t offset);
  *
  * @return      The bit value
  */
-uint32 get_gpio_bit(volatile uint32 *bits, size_t offset);
+uint32 get_gpio_bit(volatile uint32 *bits, uint64 offset);
 
-uint32 is_memory_cache(uintptr_t address);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

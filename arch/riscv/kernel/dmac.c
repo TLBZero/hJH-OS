@@ -22,7 +22,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "sleeplock.h"
-
+#include "sched.h"
 
 volatile dmac_t *const dmac = (dmac_t *)DMAC_BASE_ADDR;
 
@@ -340,15 +340,16 @@ static void *dmac_chan = (void *) DMAC_BASE_ADDR;
 
 void dmac_wait_idle(dmac_channel_number_t channel_num)
 {
-    while(!dmac_is_idle(channel_num)) {
-        acquire(&myproc()->lock);
-        sleep(dmac_chan, &myproc()->lock);
-        release(&myproc()->lock);
+    while(!dmac_is_idle(channel_num)){
+        // acquire(&current->lk);
+        // sleep(dmac_chan, &current->lk);
+        // release(&current->lk);
     }
+    dmac_chanel_interrupt_clear(channel_num);
 }
 
-void dmac_intr(dmac_channel_number_t channel_num)
-{
-    dmac_chanel_interrupt_clear(channel_num);
-    wakeup(dmac_chan);
-}
+// void dmac_intr(dmac_channel_number_t channel_num)
+// {
+//     dmac_chanel_interrupt_clear(channel_num);
+//     wakeup(dmac_chan);
+// }

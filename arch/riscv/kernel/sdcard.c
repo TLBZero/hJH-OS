@@ -3,11 +3,14 @@
 #include "riscv.h"
 #include "gpiohs.h"
 #include "buffer.h"
-#include "mutex.h"
+#include "spinlock.h"
+#include "sleeplock.h"
 #include "dmac.h"
 #include "spi.h"
 #include "sdcard.h"
+#include "system.h"
 
+#define DEBUG
 void SD_CS_HIGH(void) {
     gpiohs_set_pin(7, GPIO_PV_HIGH);
 }
@@ -42,7 +45,9 @@ static void sd_write_data_dma(uint8 const *data_buff, uint32 length) {
 
 static void sd_read_data_dma(uint8 *data_buff, uint32 length) {
     spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8, 0);
+	// printf("[sd_read_data_dma]after spi_init\n");
 	spi_receive_data_standard_dma(-1, DMAC_CHANNEL0, SPI_DEVICE_0, SPI_CHIP_SELECT_3, NULL, 0, data_buff, length);
+	// printf("[sd_read_data_dma]after spi_receive\n");
 }
 
 /**
@@ -340,7 +345,7 @@ void sdcard_init(void) {
 	#endif
 }
 
-void sdcard_read_sector(uint8 *buf, int sectorno) {
+void sdcard_read_sector(uint8 *buf, int sectorno){
 	uint8 result;
 	uint32 address;
 	uint8 dummy_crc[2];
@@ -358,28 +363,37 @@ void sdcard_read_sector(uint8 *buf, int sectorno) {
 
 	// enter critical section!
 	acquiresleep(&sdcard_lock);
+	// printf("[sdcard_read]after acquire sleeplock\n");
 
 	sd_send_cmd(SD_CMD17, address, 0);
+	// printf("[sdcard_read]debug 1\n");
+
 	result = sd_get_response_R1();
+	// printf("[sdcard_read]debug 2\n");
 
 	if (0 != result) {
 		releasesleep(&sdcard_lock);
 		panic("sdcard: fail to read");
 	}
 
+	// printf("[sdcard_read]debug 3\n");
+
 	int timeout = 0xffffff;
 	while (--timeout) {
 		sd_read_data(&result, 1);
 		if (0xfe == result) break;
 	}
+	// printf("[sdcard_read]debug 4\n");
 	if (0 == timeout) {
 		panic("sdcard: timeout waiting for reading");
 	}
+	// printf("[sdcard_read]debug 5\n");
 	sd_read_data_dma(buf, BSIZE);
+	// printf("[sdcard_read]debug 6\n");
 	sd_read_data(dummy_crc, 2);
-
 	sd_end_cmd();
 
+	// printf("[sdcard_read]before release sleeplock\n");
 	releasesleep(&sdcard_lock);
 	// leave critical section!
 }
@@ -458,25 +472,28 @@ void sdcard_write_sector(uint8 *buf, int sectorno) {
 
 // A simple test for sdcard read/write test 
 void test_sdcard(void) {
+	intr_off();
 	uint8 buf[BSIZE];
 
-	for (int sec = 0; sec < 5; sec ++) {
-		for (int i = 0; i < BSIZE; i ++) {
+	for (int sec = 0; sec < 5; sec++) {
+		for (int i = 0; i < BSIZE; i++) {
 			buf[i] = 0xaa;		// data to be written 
 		}
 
-		sdcard_write_sector(buf, sec);
+		// printf("before write\n");
+		// sdcard_write_sector(buf, sec);
+		// printf("after write\n");
 
 		for (int i = 0; i < BSIZE; i ++) {
 			buf[i] = 0xff;		// fill in junk
 		}
 
+		printf("before read\n");
 		sdcard_read_sector(buf, sec);
-		for (int i = 0; i < BSIZE; i ++) {
-			if (0 == i % 16) {
-				printf("\n");
-			}
+		printf("after read\n");
 
+		for (int i = 0; i < BSIZE; i++) {
+			if (i%16==0) puts("\n");
 			printf("%x ", buf[i]);
 		}
 		printf("\n");

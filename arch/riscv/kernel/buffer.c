@@ -114,6 +114,7 @@ struct buffer_head* bread(uint dev, uint blocknr){
  * @brief write buffer into disk
  */
 void bwrite(struct buffer_head *bh){
+    if(!holdingsleep(&bh->b_lock)) panic("[bwrite]Not holding lock!");
     sdcard_write_sector(bh->buf, bh->b_blocknr);
 }
 

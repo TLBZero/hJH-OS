@@ -23,7 +23,7 @@
 #define PTE_X (1L << 3)
 #define PTE_U (1L << 4)
 
-/* Permission Flags */
+/* permission flags */
 #define MAP_PRIVATE 0x2
 #define MAP_ANONYMOUS 0x20
 #define PROT_NONE	0x0	//页内容不可被访问

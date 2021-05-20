@@ -86,7 +86,7 @@ void paging_init(){
     create_mapping(kernel_pagetable, SPI1_BASE_ADDR, SPI1_BASE_ADDR, 0x1000, PTE_R | PTE_W);
 
     // SPI2
-    create_mapping(kernel_pagetable, SPI3_BASE_ADDR, SPI3_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, SPI2_BASE_ADDR, SPI2_BASE_ADDR, 0x1000, PTE_R | PTE_W);
 
     // SYSCTL
     create_mapping(kernel_pagetable, SYSCTL_BASE_ADDR, SYSCTL_BASE_ADDR, 0x1000, PTE_R | PTE_W);

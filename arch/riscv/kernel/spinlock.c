@@ -15,13 +15,9 @@ void initlock(struct spinlock *lk, char *name)
 void acquire(struct spinlock *lk)
 {
 	//关闭时钟中断
-	//intr_off()；
+	//intr_off();
 	if(holding(lk))
-	{
-		//puts("already have acquired\n");
-		//intr_on();
-		return;
-	}
+		panic("already have acquired\n");
 	
 	//spin
 	while(__sync_lock_test_and_set(&lk->lock, 1) != 0)

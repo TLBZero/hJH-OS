@@ -11,6 +11,7 @@
 
 #pragma once
 #include "types.h"
+#include "sleeplock.h"
 
 #define BSIZE 512
 #define BUFNR 

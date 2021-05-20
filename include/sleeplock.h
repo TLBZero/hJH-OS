@@ -11,7 +11,7 @@ struct sleeplock {
   
   // For debugging:
   char *name;        // Name of lock.
-  long owner;           // Process holding lock
+  long owner;        // Process holding lock
 };
 
 void acquiresleep(struct sleeplock*);

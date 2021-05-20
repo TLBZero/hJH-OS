@@ -15,9 +15,6 @@
 #ifndef _DRIVER_GPIOHS_H
 #define _DRIVER_GPIOHS_H
 
-#include "types.h"
-
-/* From gpio_commom.h */
 typedef enum _gpio_drive_mode
 {
     GPIO_DM_INPUT,
@@ -41,12 +38,6 @@ typedef enum _gpio_pin_value
     GPIO_PV_LOW,
     GPIO_PV_HIGH
 } gpio_pin_value_t;
-
-typedef int (*plic_irq_callback_t)(void *ctx);
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /* clang-format off */
 /* Register address offsets */
@@ -274,7 +265,7 @@ void gpiohs_set_irq(uint8 pin, uint32 priority, void (*func)());
  * @param[in]   callback        Gpiohs pin interrupt service routine
  * @param[in]   ctx             Gpiohs interrupt param
  */
-void gpiohs_irq_register(uint8 pin, uint32 priority, plic_irq_callback_t callback, void *ctx);
+//void gpiohs_irq_register(uint8 pin, uint32 priority, plic_irq_callback_t callback, void *ctx);
 
 /**
  * @brief      Unregister Gpiohs pin interrupt
@@ -283,8 +274,5 @@ void gpiohs_irq_register(uint8 pin, uint32 priority, plic_irq_callback_t callbac
  */
 void gpiohs_irq_unregister(uint8 pin);
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _DRIVER_GPIOHS_H */

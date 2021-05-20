@@ -35,8 +35,7 @@
 #ifndef _DRIVER_FPIOA_H
 #define _DRIVER_FPIOA_H
 
-// #include <stdint.h>
-// #include "platform.h"
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1028,6 +1027,7 @@ int fpioa_set_st(int number, uint8 st_enable);
  */
 int fpioa_set_oe_inv(int number, uint8 inv_enable);
 
+void fpioa_pin_init(void);
 #ifdef __cplusplus
 }
 #endif

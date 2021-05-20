@@ -37,7 +37,6 @@ __switch_to:
         # current <- next
         ld      t0, 0(a1) 
         sd      t0, 0(a0)
-
 ret
 
 .global first_switch_to

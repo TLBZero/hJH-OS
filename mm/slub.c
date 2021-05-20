@@ -1,5 +1,6 @@
 #include "riscv.h"
 #include "vm.h"
+#include "spinlock.h"
 
 enum{
 	PAGE_FREE,
@@ -10,6 +11,7 @@ enum{
 
 struct cache_area cache_region;
 unsigned long cache_tid = 0;
+struct spinlock mutex;
 
 struct kmem_cache* slub_allocator[NR_PARTIAL] = {};
 void *page_base;
@@ -213,6 +215,7 @@ void slub_init()
 {
 	page_init();
 	slub_structure_init();
+	initlock(&mutex, "slub");
 	for(int i = 0; i < NR_PARTIAL; i++)
 		slub_allocator[i] = kmem_cache_create(kmem_cache_name[i], kmem_cache_objsize[i], 8, 0, NULL);
 	return;
@@ -317,6 +320,7 @@ void *kmalloc(size_t size)
 	
 	if(size == 0) return NULL;
 
+	acquire(&mutex);
 	// size 若在 kmem_cache_objsize 所提供的范围之内，则使用 slub allocator 来分配内存
 	for(objindex = 0; objindex < NR_PARTIAL; objindex ++){
 		if(size<=kmem_cache_objsize[objindex]){
@@ -337,7 +341,7 @@ void *kmalloc(size_t size)
 		printf("[S] Buddy allocate addr: %p\n", p);
 		#endif
 	}
-	
+	release(&mutex);
     return p;
 }
 
@@ -346,6 +350,7 @@ void kfree(const void *addr)
     struct page *page;
 
     if(addr == NULL) return;
+	acquire(&mutex);
 
     // 获得地址所在页的属性
 	page = ADDR_TO_PAGE(addr);
@@ -357,6 +362,7 @@ void kfree(const void *addr)
     } else if(page->flags == PAGE_SLUB){
         kmem_cache_free(addr);
     }
-
+	
+	release(&mutex);
     return;
 }

@@ -1,30 +1,50 @@
-#include "riscv.h"
 #include "sched.h"
-#include "put.h"
-#include "vm.h"
-
-#ifdef SJF
-    #define COUNTER(N) (N ? rand() : 0)
-#endif
-#ifdef PRIORITY
-    #define COUNTER(N) (N ? 8 - N: 0)
-#endif
+#include "riscv.h"
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "types.h"
+#include "sdcard.h"
+#include "fpioa.h"
+#include "dmac.h"
 
 struct task_struct* current;
 struct task_struct* task[NR_TASKS];
+//struct sleeplock lk;
 
 extern void __switch_to(unsigned long long, unsigned long long);
 extern void first_switch_to();
 
 void task_init(void){
+	//initsleeplock(&lk, "wdl");
 	puts("task init...\n");
-	for(int i=0;i<=LAB_TEST_NUM;i++){//init task[i]
-		task[i]=(struct task_struct*)kmalloc(PAGE_SIZE);
+	task[0]=current=(struct task_struct*)TASK_VM_START;		//Task0 Base
+	task[0]->state=TASK_RUNNING;
+	task[0]->counter=0;
+	task[0]->priority=5;
+	task[0]->blocked=0;
+	task[0]->pid=0;
+	task[0]->ppid=0;
+	task[0]->xstate=-1;
+	task[0]->chan=0;
+	initlock(&(task[0]->lk), "proc");
+	task[0]->thread.sp=TASK_VM_START+TASK_SIZE;	//Task0 Base + 4kb
+
+	for(int i=1;i<=LAB_TEST_NUM;i++){//init task[i]
+		task[i]=(struct task_struct*)(TASK_VM_START+i*TASK_SIZE);
 		task[i]->state=TASK_RUNNING;
-		task[i]->counter = COUNTER(i);
+#ifdef SJF
+		task[i]->counter=rand();
+#endif
+#ifdef PRIORITY
+		task[i]->counter=(8-i)>0?8-i:0;
+#endif
 		task[i]->priority=5;
 		task[i]->blocked=0;
 		task[i]->pid=i;
+		task[i]->ppid=0;
+		task[i]->xstate=-1;
+		task[i]->chan=0;
+		initlock(&(task[i]->lk), "proc");
 		task[i]->thread.sp=(unsigned long long)task[i]+TASK_SIZE;
 		task[i]->thread.ra=(unsigned long long)&first_switch_to;
 #ifdef SJF
@@ -34,7 +54,6 @@ void task_init(void){
 		printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 #endif
 	}
-	current = task[0];
 }
 
 void do_timer(void){
@@ -71,7 +90,7 @@ void schedule(void){
 			}
 		}
 		if(c>0) break;
-		for(int i=1;i<=LAB_TEST_NUM;i++){
+		for(int i=1;i<=LAB_TEST_NUM;i++) if(task[i]->state==TASK_RUNNING) {
 			task[i]->counter=rand();
 			printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
 		}
@@ -98,14 +117,86 @@ void schedule(void){
 		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 #endif
+
+	//acquiresleep(&lk);
+	//printf("%s current pid=%d\n",lk.name, lk.owner);
+	//releasesleep(&lk);
+
 	switch_to(task[next]);
 }
 
 void switch_to(struct task_struct* next){
-    if(current == next) return;
-    __switch_to(&current, &next);
+	if(current==next) return;
+	__switch_to(&current, &next);
 }
 
+/*  */
 void dead_loop(void){
+	fpioa_pin_init();
+	dmac_init();
+	sdcard_init();
+	test_sdcard();
 	while(1);
+}
+/* 返回当前进程的pid*/
+long getpid(void){
+	return current->pid;
+}
+
+/* 返回当前进程的ppid*/
+long getppid(void){
+	return current->ppid;
+}
+
+/* 退出 */
+void exit(long status){
+	if(current->pid==0){
+		//task[0]不可以结束
+		return;
+	}
+
+	//如果某个进程的父进程ppid==当前进程的pid，则把他的父进程变为task[0]
+	for(int i=1;i<NR_TASKS;i++)
+	{
+		if(task[i]->ppid==current->pid) task[i]->ppid=0;
+	}
+
+	//若当前进程的父进程处于睡眠状态，则唤醒
+	if(task[current->ppid]->state==TASK_SLEEPING) task[current->ppid]->state=TASK_RUNNING;
+
+	current->xstate=status;
+	current->state=TASK_ZOMBIE;
+	schedule();
+}
+
+void sleep(void *chan, struct spinlock *lk)
+{
+	if(lk!=&current->lk)
+	{
+		acquire(&(current->lk));
+		release(lk);
+	}
+	current->chan=chan;
+	current->state=TASK_SLEEPING;
+	schedule();
+	current->chan=0;
+	if(lk!=&current->lk)
+	{
+		release(&(current->lk));
+		acquire(lk);
+	}
+}
+
+void wakeup(void *chan)
+{
+	for(int i=1;i<NR_TASKS;i++)
+	{
+		if(task[i]==0) continue;
+		acquire(&(task[i]->lk));
+		if(task[i]->state==TASK_SLEEPING && task[i]->chan==chan)
+		{
+			task[i]->state=TASK_RUNNING;
+		}
+		release(&(task[i]->lk));
+	}
 }

@@ -3,11 +3,12 @@
 #include "sched.h"
 #include "put.h"
 
+#define DEBUG
+
 void acquiresleep(struct sleeplock *lk)
 {
     acquire(&lk->lk);
-    while (lk->lock)
-    {
+    while (lk->lock){
         sleep(lk, &lk->lk);
     }
     lk->lock = 1;
@@ -22,7 +23,7 @@ void releasesleep(struct sleeplock *lk)
 {
     acquire(&lk->lk);
     lk->lock = 0;
-    lk->owner = 0;
+    lk->owner = -1;
     wakeup(lk);
     #ifdef DEBUG
 	printf("release sucessfully\n");
