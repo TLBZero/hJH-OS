@@ -4,6 +4,8 @@
 #include "sysctl.h"
 #include "sched.h"
 #include "memlayout.h"
+#include "put.h"
+#include "string.h"
 
 pagetable_t kernel_pagetable=NULL;
 
@@ -23,6 +25,21 @@ pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc){
         }
     }
     return &pagetable[PX(0,va)];
+}
+
+uint64 kwalkaddr(pagetable_t kpt, uint64 va)
+{
+  uint64 off = va % PAGE_SIZE;
+  pte_t *pte;
+  uint64 pa;
+  
+  pte = walk(kpt, va, 0);
+  if(pte == 0)
+    panic("kvmpa");
+  if((*pte & PTE_V) == 0)
+    panic("kvmpa");
+  pa = PTE2PA(*pte);
+  return pa+off;
 }
 
 /**
@@ -51,13 +68,12 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
  * @brief Initialize pages for later uses
  */
 void paging_init(){
-
+    #ifndef QEMU
     sysctl_pll_enable(SYSCTL_PLL1);
     sysctl_clock_enable(SYSCTL_CLOCK_PLL1);
-    
+    #endif
     // Initialize memory space
     memset((uint64)_end, 0, MEM_END-(uint64)_end);
-    
     init_buddy_system();
 
     kernel_pagetable = (pagetable_t) K_VA2PA((uint64)alloc_pages(1));
@@ -66,11 +82,18 @@ void paging_init(){
 
     //UART
     create_mapping(kernel_pagetable, UARTHS_BASE_ADDR, UARTHS_BASE_ADDR, PAGE_SIZE, PTE_R | PTE_W);
+
+    #ifdef QEMU
+    create_mapping(kernel_pagetable, VIRTIO0, VIRTIO0, PAGE_SIZE, PTE_R|PTE_W);
+    #endif
+
     //CLINT
     create_mapping(kernel_pagetable, CLINT_BASE_ADDR, CLINT_BASE_ADDR, 0x10000, PTE_R | PTE_W);
     // PLIC
     create_mapping(kernel_pagetable, PLIC_BASE_ADDR, PLIC_BASE_ADDR, 0x4000, PTE_R | PTE_W);
     create_mapping(kernel_pagetable, PLIC_BASE_ADDR + 0x200000, PLIC_BASE_ADDR + 0x200000, 0x4000, PTE_R | PTE_W);
+
+    #ifndef QEMU
     // GPIOHS
     create_mapping(kernel_pagetable, GPIOHS_BASE_ADDR, GPIOHS_BASE_ADDR, 0x1000, PTE_R | PTE_W);
     // DMAC
@@ -93,7 +116,14 @@ void paging_init(){
 
     // SYSCTL
     create_mapping(kernel_pagetable, SYSCTL_BASE_ADDR, SYSCTL_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    #endif
 
+    #ifdef DEBUG
+    printf("text_start:%p, text_end:%p\n", text_start, text_end);
+    printf("rodata_start:%p, rodata_end:%p\n", rodata_start, rodata_end);
+    printf("data_start:%p, data_end:%p\n", data_start, data_end);
+    printf("bss_start:%p, bss_end:%p\n", bss_start, bss_end);
+    #endif
 
     create_mapping(kernel_pagetable,SBIBASE,SBIBASE,SBISIZE,PTE_R|PTE_X);
     create_mapping(kernel_pagetable,KERNELBASE,KERNELBASE,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);
@@ -109,6 +139,21 @@ void paging_init(){
 
     asm volatile("csrw satp, %0"::"r"(SV39|((uint64)kernel_pagetable>>12)));
     asm volatile("sfence.vma");
+
+    // uint64 satp;
+    // r_csr(satp, satp);
+    // printf("satp:%p\n",satp);
+
+    // for(int level = 2; level > 0; level--){
+    //     pte_t* pte = &kernel_pagetable[PX(level, KERNEL_HIGH_BASE)];
+    //     printf("[1]pte:%p\n", pte);
+    //     if(*pte & PTE_V) kernel_pagetable = (pte_t*)PTE2PA(*pte);
+    //     else{//or we need to add this pagetable
+    //         kernel_pagetable = (pde_t *)(K_VA2PA((uint64)alloc_pages(1)));
+    //         *pte = PA2PTE(kernel_pagetable) | PTE_V;
+    //     }
+    // }
+    //printf("testMMU:%p\n", kwalkaddr(kernel_pagetable, KERNEL_HIGH_BASE));
 
     slub_init();
     return;

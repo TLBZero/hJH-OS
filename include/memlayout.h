@@ -8,8 +8,8 @@
  * @copyright Copyright (c) 2021
  * 
  */
-#ifndef _MEMLAYOUT_H
-#define _MEMLAYOUT_H
+#pragma once
+#define QEMU
 /**
  * @brief Some info about k210
  * 
@@ -39,6 +39,7 @@
 
 #define PHY2VIRT(pa)  ((pa)^(0xFFFFFFE080000000UL))
 
+#ifndef QEMU
 #define SBIBASE         0x80000000UL
 #define SBISIZE         0x20000UL
 #define KERNELBASE      0x80020000UL
@@ -46,9 +47,24 @@
 #define KERNELSIZE      0x1FE000UL
 #define MEM_END         0x80800000UL
 #define MEM_SIZE        (MEM_END-SBIBASE)
-
+#define TASK_VM_START   0xffffffe000100000L
+#else
+#define SBIBASE         0x80000000UL
+#define SBISIZE         0x200000UL
+#define KERNELBASE      0x80200000UL
+#define KERNELEND       0x80400000UL
+#define KERNELSIZE      0x200000UL
+#define MEM_END         0x80800000UL
+#define MEM_SIZE        (MEM_END-SBIBASE)
+#define TASK_VM_START   0xffffffe000300000L
+#endif
 #define SBI_HIGH_BASE       (PHY2VIRT(SBIBASE))
 #define KERNEL_HIGH_BASE    (PHY2VIRT(KERNELBASE))
+
+#ifdef QEMU
+// virtio mmio interface
+#define VIRTIO0                 (0x10001000UL)
+#endif
 
 /* Under Coreplex */
 #define CLINT_BASE_ADDR     (0x02000000UL)
@@ -65,7 +81,13 @@
 
 
 /* Under TileLink */
+#ifndef QEMU
 #define UARTHS_BASE_ADDR    (0x38000000UL)
+#else
+#define UARTHS_BASE_ADDR    (0x10000000UL)
+#endif
+
+#ifndef QEMU
 #define GPIOHS_BASE_ADDR    (0x38001000UL)
 
 /* Under AXI 64 bit */
@@ -125,5 +147,4 @@
 #define SPI0_BASE_ADDR      (0x52000000UL)
 #define SPI1_BASE_ADDR      (0x53000000UL)
 #define SPI2_BASE_ADDR      (0x54000000UL)
-
 #endif

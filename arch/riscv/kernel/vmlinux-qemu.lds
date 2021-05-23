@@ -1,8 +1,8 @@
 OUTPUT_ARCH( "riscv" )
 ENTRY( _start )
 MEMORY {
-  ram (wxa!ri) : ORIGIN = 0x0000000080020000, LENGTH = 8M
-  ramv (wxa!ri) : ORIGIN = 0xffffffe000020000, LENGTH = 4096M
+  ram (wxa!ri) : ORIGIN = 0x0000000080200000, LENGTH = 8M
+  ramv (wxa!ri) : ORIGIN = 0xffffffe000200000, LENGTH = 8M
 }
 PHDRS {
   text PT_LOAD;
@@ -11,7 +11,7 @@ PHDRS {
   bss PT_LOAD;
 }
 SECTIONS {
-  . = 0xffffffe000020000;
+  . = 0xffffffe000200000;
   .text : {
     PROVIDE(text_start = .);
     *(.text.init)

@@ -4,6 +4,7 @@
 
 void *memset(void *dst, int init, uint num)
 {
+    printf("[memset]dst:%p, num:%p\n",dst, num);
     char *dst_tp = (char *) dst;
     for(uint i = 0; i < num; i++)
         dst_tp[i] = init;

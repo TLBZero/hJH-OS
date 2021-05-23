@@ -1,5 +1,6 @@
 #include "put.h"
 #include "rustsbi.h"
+#include "spinlock.h"
 int puts(const char *s)
 {
     while (*s != '\0')

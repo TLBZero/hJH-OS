@@ -8,7 +8,9 @@
 void strap_handler(int64 scause, int64 sepc, uintptr_t *regs){
 	memcpy(current->stack, regs, STACK_SIZE);
 	if(scause>=0){//exception
-		printf("[Exp]\n");
+		#ifdef DEBUG
+		printf("[strap_handler]Get into EXP\n");
+		#endif
 		scause&=0xff;
 		switch(scause){
 			case U_ECALL:{

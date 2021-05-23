@@ -1,7 +1,6 @@
 #include "vm.h"
 #include "riscv.h"
 #include "memlayout.h"
-
 struct buddy Buddy;
 unsigned buddy_bitmap[BUDDY_BITMAP_SIZE];
 
@@ -14,13 +13,17 @@ void init_buddy_system(void)
     Buddy.size = (MEM_SIZE>>PAGE_SHIFT);
 
     #ifdef DEBUG
-    printf("[init_buddy_system]Buddy.size:%x\n", Buddy.size);
+    printf("[init_buddy_system]Buddy.size:%x, _end:%p\n", Buddy.size, _end);
     #endif
 
     for (uint size = Buddy.size, num = 1, i = 0; size > 0; size /= 2, num *= 2)
         for (int j = 0; j < num; j++)
             Buddy.bitmap[i++] = size;
     alloc_pages(PAGENUM_ROUNDUP((void *)_end - (void *)SBIBASE));
+    
+    #ifdef DEBUG
+    printf("[init_buddy_system]Buddy Init Down!\n", Buddy.size);
+    #endif
 }
 
 /**
@@ -43,13 +46,13 @@ static inline uint64 from_index_to_X(uint64 index){
 }
 
 static inline void* get_va_of_pageX(uint64 index){
-    uintptr_t t = (from_index_to_X(index)<<PAGE_SHIFT) + KERNEL_HIGH_BASE;
+    uintptr_t t = (from_index_to_X(index)<<PAGE_SHIFT) + SBI_HIGH_BASE;
     return (void *)t;
 }
 
 static inline uint64 get_X_of_va(void *va){
     uint64 t = *(uint64 *)&va;
-    return (t-KERNEL_HIGH_BASE)>>PAGE_SHIFT;
+    return (t-SBI_HIGH_BASE)>>PAGE_SHIFT;
 }
 
 
@@ -75,7 +78,9 @@ void *alloc_pages(int num)
         trace=PARENT(trace);
         Buddy.bitmap[trace] = ((Buddy.bitmap[LEFT_CHILD(trace)])>(Buddy.bitmap[RIGHT_CHILD(trace)]))?(Buddy.bitmap[LEFT_CHILD(trace)]):(Buddy.bitmap[RIGHT_CHILD(trace)]);
     }
-    printf("[alloc_pages]va:%p, pa:%p\n", va, K_VA2PA((uint64)va));
+    #ifdef DEBUG
+    printf("[alloc_pages]size:%x, va:%p, pa:%p\n", size, va, K_VA2PA((uint64)va));
+    #endif
     return va;
 }
 

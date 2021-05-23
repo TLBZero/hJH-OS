@@ -1,6 +1,8 @@
 #include "riscv.h"
 #include "vm.h"
 #include "spinlock.h"
+#include "put.h"
+#include "string.h"
 
 enum{
 	PAGE_FREE,
@@ -103,6 +105,9 @@ void* init_object_list(void *addr, size_t objsize, size_t size)
 
 void page_init()
 {
+	#ifdef DEBUG
+	printf("[page_init]Get in!\n");
+	#endif
 	size_t page_size;
 
 	page_size = (1UL << (MEM_SHIFT - PAGE_SHIFT)) * STRUCT_PAGE_SIZE;
@@ -111,9 +116,17 @@ void page_init()
 	if(page_base == NULL)
 		while(1);
 
+	printf("[slub_init]test1\n");
+
 	memset(page_base, 0, page_size << PAGE_SHIFT);
     
+	printf("[slub_init]test2\n");
+
     set_page_attr(page_base, page_size, PAGE_RESERVE);
+
+	#ifdef DEBUG
+	printf("[slub_init]Down!\n");
+	#endif
 }
 
 void slub_structure_init()
@@ -172,7 +185,9 @@ void *cache_create(const char *name, size_t size, unsigned int aligns, int flags
 	s->nr_partial = 0;
 
 	s->tid = cache_tid++;
+	#ifdef DEBUG
 	printf("[S] Create New cache: name:%s    	size: %x, align: %x\n", name, size, aligns);
+	#endif
 	return s;
 }
 
@@ -183,7 +198,9 @@ void *cache_alloc_pages(struct kmem_cache *cache)
 	struct page *page;
 
 	p = alloc_pages(cache->nr_page_per_slub);
+	#ifdef DEBUG
 	printf("[cache_alloc_pages]p:%p\n", p);
+	#endif
 	if(p == NULL) return NULL;
 
 	memset(p, 0, (cache->nr_page_per_slub) << PAGE_SHIFT);
@@ -213,12 +230,19 @@ static void inline free_slub_structure(struct kmem_cache *cache)
 
 void slub_init()
 {
+	#ifdef DEBUG
+	printf("[slub_init]Get in!\n");
+	#endif
+	
 	page_init();
 	slub_structure_init();
 	initlock(&mutex, "slub");
 	for(int i = 0; i < NR_PARTIAL; i++)
 		slub_allocator[i] = kmem_cache_create(kmem_cache_name[i], kmem_cache_objsize[i], 8, 0, NULL);
 	return;
+	#ifdef DEBUG
+	printf("[slub_init]Slub Init Down!\n");
+	#endif
 }
 
 struct kmem_cache *
@@ -229,7 +253,9 @@ kmem_cache_create(const char *name, size_t size,
 	const char *cache_name;
 
 	s = cache_create(name, size, aligns, flags, func);
+	#ifdef DEBUG
 	printf("[kmem_cache_create]s:%p\n", s);
+	#endif
 	if(cache_alloc_pages(s) == NULL){
 		free_slub_structure(s);
 		return NULL;

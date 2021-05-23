@@ -14,15 +14,16 @@
 #include "sleeplock.h"
 
 #define BSIZE 512
-#define BUFNR 
+#define BUFNR 50
 
 
 struct buffer_head {
-	unsigned long b_blocknr;	/* block number */
-	unsigned short b_dev;		/* device (0 = free) */
-	unsigned char b_uptodate;
-	unsigned char b_dirt;		/* 0-clean,1-dirty */
-	unsigned char b_count;		/* users using this block */
+	uint b_blocknr;		/* block number */
+	uint8 b_dev;		/* device (0 = free) */
+	int disk;
+	uint8 b_uptodate;
+	uint8 b_dirt;		/* 0-clean,1-dirty */
+	uint8 b_count;		/* users using this block */
 	struct sleeplock b_lock;
 	struct buffer_head * b_prev;
 	struct buffer_head * b_next;

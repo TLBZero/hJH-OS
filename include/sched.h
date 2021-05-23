@@ -34,8 +34,6 @@
 #define WUNTRACED     1
 #define WCONTINUED    2
 
-#define TASK_VM_START 0xffffffe000100000L
-
 #define STACK_SIZE 31*8
 
 /* 当前进程 */

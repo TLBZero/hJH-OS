@@ -348,8 +348,8 @@ void dmac_wait_idle(dmac_channel_number_t channel_num)
     dmac_chanel_interrupt_clear(channel_num);
 }
 
-// void dmac_intr(dmac_channel_number_t channel_num)
-// {
-//     dmac_chanel_interrupt_clear(channel_num);
-//     wakeup(dmac_chan);
-// }
+void dmac_intr(dmac_channel_number_t channel_num)
+{
+    dmac_chanel_interrupt_clear(channel_num);
+    wakeup(dmac_chan);
+}

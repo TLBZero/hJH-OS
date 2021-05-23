@@ -4,6 +4,7 @@
 #include "put.h"
 #include "sdcard.h"
 #include "sleeplock.h"
+#include "disk.h"
 
 struct buffer_head buf[BUFNR+1]; // buf[0] acts as head
 static struct buffer_head* free_list;
@@ -99,7 +100,7 @@ struct buffer_head* bread(uint dev, uint blocknr){
     struct buffer_head *bh;
     bh = getblk(dev, blocknr);
     if(!bh->b_uptodate){
-        sdcard_read_sector(bh->buf, blocknr);
+        disk_read(bh);
         // Operation fails
         if(!bh->b_uptodate){
             brelse(bh);
@@ -115,7 +116,7 @@ struct buffer_head* bread(uint dev, uint blocknr){
  */
 void bwrite(struct buffer_head *bh){
     if(!holdingsleep(&bh->b_lock)) panic("[bwrite]Not holding lock!");
-    sdcard_write_sector(bh->buf, bh->b_blocknr);
+    disk_write(bh);
 }
 
 /**
