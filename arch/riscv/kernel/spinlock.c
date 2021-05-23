@@ -17,7 +17,7 @@ void acquire(struct spinlock *lk)
 	//关闭时钟中断
 	//intr_off();
 	if(holding(lk))
-		panic("already have acquired\n");
+		panic("acquire error, already acquired\n");
 	
 	//spin
 	while(__sync_lock_test_and_set(&lk->lock, 1) != 0)
@@ -25,7 +25,11 @@ void acquire(struct spinlock *lk)
 		
 	__sync_synchronize();
 	lk->owner=getpid();
-	//puts("acqire sucessfully\n");
+
+	#ifdef DEBUG
+	puts("acquire sucessfully\n");
+	#endif
+
 	//intr_on();
 	return;
 }
@@ -36,7 +40,7 @@ void release(struct spinlock *lk)
 	//intr_off()；
 	if(!holding(lk))
 	{
-		//puts("already have released\n");
+		panic("already have released\n");
 		//intr_on();
 		return;
 	}
@@ -47,7 +51,9 @@ void release(struct spinlock *lk)
 	
 	lk->owner=-1;
 
-	//puts("release sucessfully\n");
+	#ifdef DEBUG
+	puts("release sucessfully\n");
+	#endif
 	//intr_on();
 	return;
 }

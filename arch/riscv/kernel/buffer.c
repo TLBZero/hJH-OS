@@ -59,7 +59,7 @@ static struct buffer_head* getblk(int dev, int block){
             acquiresleep(&bh->b_lock);
             return bh;
         }
-    panic("[getblk]No free buffer found!\n");
+    panic("getblk error, no free buffer found!");
 }
 
 static void inline liftBuffer(struct buffer_head *bh){

@@ -27,6 +27,7 @@
 
 #define LONG_NAME_LEN       13
 #define SHORT_NAME_LEN      11
+#define LAST_LONG_ENTRY     0x40
 
 #define FAT32_MAX_FILENAME  255
 #define FAT32_MAX_PATH      260
@@ -34,7 +35,7 @@
 #define ENTRY_CACHE_NUM     50
 
 /* This struct only exist in memory, not in disk */
-struct dir_entry {
+struct dirent {
     char  filename[FAT32_MAX_FILENAME + 1];
     uint8   attribute;
     // uint8   create_time_tenth;
@@ -55,9 +56,9 @@ struct dir_entry {
     uint8   uptodate;
     int     refcnt;
     uint32  off;               // offset in the parent dir entry, for writing convenience
-    struct dir_entry *parent;  // because FAT32 doesn't have such thing like inum, use this for cache trick
-    struct dir_entry *next;
-    struct dir_entry *prev;
+    struct dirent *parent;  // because FAT32 doesn't have such thing like inum, use this for cache trick
+    struct dirent *next;
+    struct dirent *prev;
     struct sleeplock lock;
 };
 

@@ -286,6 +286,14 @@ int sysctl_clock_enable(sysctl_clock_t clock)
     return 0;
 }
 
+int sysctl_clock_disable(sysctl_clock_t clock)
+{
+    if(clock >= SYSCTL_CLOCK_MAX)
+        return -1;
+    sysctl_clock_device_en(clock, 0);
+    return 0;
+}
+
 int sysctl_dma_select(sysctl_dma_channel_t channel, sysctl_dma_select_t select)
 {
     sysctl_dma_sel0_t dma_sel0;
@@ -330,7 +338,6 @@ int sysctl_dma_select(sysctl_dma_channel_t channel, sysctl_dma_select_t select)
 
     return 0;
 }
-
 
 int sysctl_pll_enable(sysctl_pll_t pll)
 {

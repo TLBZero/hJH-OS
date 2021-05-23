@@ -30,6 +30,6 @@ struct buffer_head {
 };
 
 void binit(void);
-struct buffer_head* bread(uint, uint);
-void brelse(struct buffer_head*);
-void bwrite(struct buffer_head*);
+struct buffer_head* bread(uint dev, uint blocknr);
+void brelse(struct buffer_head* bh);
+void bwrite(struct buffer_head* bh);

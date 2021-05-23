@@ -105,6 +105,9 @@ struct task_struct {
     uint64 allocated_stack;
     void *chan;
 	struct spinlock lk;
+    
+    /* Fs */
+    struct dirent *cwd;
 };
 
 /* 进程初始化 创建四个dead_loop进程 */ 
