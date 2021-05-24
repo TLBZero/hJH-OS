@@ -13,6 +13,7 @@ OBJS = \
 	syscall.o \
 	sysproc.o \
 	timer.o \
+	plic.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
@@ -95,6 +96,9 @@ virtio_disk.o:
 
 timer.o:
 	$(GCC) $(CFLAG) -c timer.c -o $(BUILD)/timer.o
+
+plic.o:
+	$(GCC) $(CFLAG) -c plic.c -o $(BUILD)/plic.o
 
 vmlinux: $(LDSCRIPT) $(LKOBJS)
 	$(LD) -T $(LDSCRIPT) $(LKOBJS) -o ../../../vmlinux

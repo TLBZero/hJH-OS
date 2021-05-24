@@ -3,7 +3,9 @@
 #include "vm.h"
 #include "timer.h"
 #include "system.h"
-
+#include "disk.h"
+#include "plic.h"
+#include "sched.h"
 volatile static int started = 0;
 
 static inline void inithartid(unsigned long hartid) {
@@ -18,12 +20,16 @@ void start_kernel(unsigned long hartid)
 		printf_init();
 		print_logo();
 		paging_init();
+		plic_init();
+		plic_inithart();
 		timer_init();
+		disk_init();
+		binit();
 		__sync_synchronize();
 		started = 1;
 	}
 	else{
     	while (started == 0);
 	}
-	os_test();
+	task_init();
 }

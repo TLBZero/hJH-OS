@@ -87,3 +87,19 @@ typedef struct long_name_entry {
     uint16      _fst_clus_lo;
     wchar       name3[2];
 } __attribute__((packed, aligned(4))) long_name_entry_t;
+
+
+int fat_init();
+int eread(struct dirent *entry, uint64 dst, uint off, uint num);
+struct dirent *edup(struct dirent *entry);
+int ewrite(struct dirent *entry, uint64 src, uint off, uint num);
+char *formatname(char *name);
+uint8 cal_checksum(uchar* shortname);
+void emake(struct dirent *dp, struct dirent *ep, uint off);
+struct dirent *ealloc(struct dirent *dp, char *name, int attr);
+void eupdate(struct dirent *entry);
+void etrunc(struct dirent *entry);
+void eremove(struct dirent *entry);
+int enext(struct dirent *dp, struct dirent *ep, uint off, int *count);
+struct dirent *dirlookup(struct dirent *dp, char *filename, uint *poff);
+struct dirent *ename(char *path);

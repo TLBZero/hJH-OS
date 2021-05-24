@@ -48,7 +48,7 @@ static void printint(int xx, int base, int sign)
 
 void printf_init(){
     initlock(&printlock, "printf");
-    printf("printf init down! lockaddr:%p\n", &printlock);
+    printf("printf init down!\n", &printlock);
 }
 
 void printf(char *fmt, ...)
@@ -84,7 +84,6 @@ void printf(char *fmt, ...)
 
 void panic(const char *s)
 {
-    puts("panic");
     printf("[Kernel Panic]: %s\n", s);
     while(1);
 }

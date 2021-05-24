@@ -12,10 +12,12 @@ trap_s:
         csrr a1, sepc
         mv a2, sp
 		call strap_handler
-		call timer_tick
 
         load_all
-	sret
+
+		// li t0, 0x100
+		// csrs sstatus, t0
+sret
 
 /* this function do the context switch
  * &current is stored in a0, &next is stored in a1
@@ -29,7 +31,24 @@ __switch_to:
         addi t0, t0, THREAD_OFFSET      # t0 <- current thread struct
         addi t1, t1, THREAD_OFFSET      # t1 <- next thread struct
 
+		csrr t2, sepc
+		sd t2, 0(t0)	# store sepc
+		addi t0, t0, 8
+
+		csrr t2, sscratch
+		sd t2, 0(t0)	# store sscratch
+		addi t0, t0, 8
+
         save_tss t0
+
+		ld t2, 0(t1)	# load sepc
+		csrw sepc, t2
+		addi t1, t1, 8
+		
+		ld t2, 0(t1)	# load sscratch
+		csrw sscratch, t2
+		addi t1, t1, 8
+
         load_tss t1
 
         # current <- next
@@ -40,11 +59,10 @@ ret
 .global first_switch_to
 .type first_switch_to, @function
 first_switch_to:
-	la t0, dead_loop
-	# li t0, 0x100
-	# csrc sstatus, t0
-	# la t0, 0
-	# csrw sepc, t0
+	li t0, 0x100
+	csrs sstatus, t0
+	la t0, task_test
+	csrw sepc, t0
 sret
 
 .global ret_from_fork
@@ -101,11 +119,18 @@ env_init:
 	li t0, 0x40122
 	csrs sstatus, t0
 
-	# set sie[ssie], sie[stie] = 1
-	li t0, 0x22
+	# set sie[ssie], sie[stie] = 1, sie[seie] = 1
+	li t0, 0x222
 	csrs sie, t0
 
 	# set virtual address of trap_s
 	la t0, trap_s
 	csrw stvec, t0
+ret
+
+.global idle
+.type idle, @function
+idle:
+	wfi
+	j idle
 ret

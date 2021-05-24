@@ -2,9 +2,7 @@
 #include "spinlock.h"
 #include "sched.h"
 #include "put.h"
-
 #define DEBUG
-
 void acquiresleep(struct sleeplock *lk)
 {
     acquire(&lk->lk);
@@ -14,7 +12,8 @@ void acquiresleep(struct sleeplock *lk)
     lk->lock = 1;
     lk->owner = getpid();
     #ifdef DEBUG
-	printf("acqire sucessfully\n");
+    puts(lk->name);
+	puts(" acqiresleep sucessfully!\n");
     #endif
     release(&lk->lk);
 }
@@ -26,7 +25,8 @@ void releasesleep(struct sleeplock *lk)
     lk->owner = -1;
     wakeup(lk);
     #ifdef DEBUG
-	printf("release sucessfully\n");
+    puts(lk->name);
+	printf(" releasesleep sucessfully!\n");
     #endif
     release(&lk->lk);
 }

@@ -9,7 +9,7 @@ OBJCOPY=${CROSS_}objcopy
 # PLATFORM=k210
 PLATFORM=qemu
 MODE=release
-#MODE=debug
+# MODE=debug
 
 QEMU = qemu-system-riscv64
 QEMUOPTS = -machine virt -kernel vmlinux -m 8M -nographic
@@ -20,8 +20,8 @@ QEMUOPTS = -machine virt -kernel vmlinux -m 8M -nographic
 QEMUOPTS += -bios $(RUSTSBI)
 
 # import virtual disk image
-# QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 
-# QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 
+QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
 ISA ?= rv64imafd
 ABI ?= lp64

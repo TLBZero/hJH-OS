@@ -87,10 +87,10 @@
 #define DISK_IRQ    27
 #endif 
 
-void plicinit(void);
+void plic_init(void);
 
 // enable PLIC for each hart 
-void plicinithart(void);
+void plic_inithart(void);
 
 // ask PLIC what interrupt we should serve 
 int plic_claim(void);

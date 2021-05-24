@@ -26,7 +26,7 @@
 #define PREEMPT_DISABLE 1
 
 /* Lab3中进程的数量以及每个进程初始的时间片 */
-#define LAB_TEST_NUM        4
+#define LAB_TEST_NUM        2
 #define LAB_TEST_COUNTER    5
 
 /* wait的option */
@@ -44,20 +44,22 @@ extern struct task_struct * task[NR_TASKS];
 
 /* 进程状态段数据结构 */
 struct thread_struct {
-    unsigned long long ra;
-    unsigned long long sp;
-    unsigned long long s0;
-    unsigned long long s1;
-    unsigned long long s2;
-    unsigned long long s3;
-    unsigned long long s4;
-    unsigned long long s5;
-    unsigned long long s6;
-    unsigned long long s7;
-    unsigned long long s8;
-    unsigned long long s9;
-    unsigned long long s10;
-    unsigned long long s11;
+    uint64 sepc;
+    uint64 sscratch;
+    uint64 ra;
+    uint64 sp;
+    uint64 s0;
+    uint64 s1;
+    uint64 s2;
+    uint64 s3;
+    uint64 s4;
+    uint64 s5;
+    uint64 s6;
+    uint64 s7;
+    uint64 s8;
+    uint64 s9;
+    uint64 s10;
+    uint64 s11;
 };
 
 typedef struct { unsigned long pgprot; } pgprot_t;
@@ -120,8 +122,8 @@ void schedule(void);
 /* 切换当前任务current到下一个任务next */
 void switch_to(struct task_struct* next);
 
-/* 死循环 */
-void dead_loop(void);
+/* 测试 */
+void task_test(void);
 
 /* clone */
 pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid);

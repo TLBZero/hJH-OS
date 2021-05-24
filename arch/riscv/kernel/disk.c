@@ -2,6 +2,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "buffer.h"
+#include "disk.h"
 
 #ifndef QEMU
 #include "sdcard.h"
@@ -16,6 +17,9 @@ void disk_init(void)
     virtio_disk_init();
 	#else 
 	sdcard_init();
+    #endif
+    #ifdef DEBUG
+    puts("disk init done!\n");
     #endif
 }
 

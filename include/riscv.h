@@ -43,8 +43,8 @@
 #define r_csr(csr, para) asm("csrr %0, " #csr :"=r"(para))
 #define c_csr(csr, para) asm("csrc " #csr ", %0"::"r"(para))
 #define s_csr(csr, para) asm("csrs " #csr ", %0"::"r"(para))
-#define r_reg(reg, para) asm("addw %0, " #reg ", x0":"=r"(para))
-#define w_reg(reg, para) asm("addw" #reg ", %0, x0"::"r"(para))
+#define r_reg(reg, para) asm("mv %0, " #reg :"=r"(para))
+#define w_reg(reg, para) asm("mv " #reg ", %0"::"r"(para))
 
 /* Stack Struct */
 #define REG_X(num) num

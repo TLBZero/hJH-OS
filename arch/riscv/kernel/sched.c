@@ -7,20 +7,19 @@
 #include "put.h"
 #include "vm.h"
 #include "string.h"
-
+#include "timer.h"
+#define DEBUG
 struct task_struct* current;
 struct task_struct* task[NR_TASKS];
-//struct sleeplock lk;
 
 extern void __switch_to(unsigned long long, unsigned long long);
 extern void first_switch_to();
+extern void idle();
 
 void task_init(void){
-	//initsleeplock(&lk, "wdl");
-	printf("task init...\n");
 	task[0]=current=(struct task_struct*)TASK_VM_START;		//Task0 Base
 	task[0]->state=TASK_RUNNING;
-	task[0]->counter=0;
+	task[0]->counter=1;
 	task[0]->priority=5;
 	task[0]->blocked=0;
 	task[0]->pid=0;
@@ -34,12 +33,7 @@ void task_init(void){
 	for(int i=1;i<=LAB_TEST_NUM;i++){//init task[i]
 		task[i]=(struct task_struct*)(TASK_VM_START+i*TASK_SIZE);
 		task[i]->state=TASK_RUNNING;
-#ifdef SJF
 		task[i]->counter=rand();
-#endif
-#ifdef PRIORITY
-		task[i]->counter=(8-i)>0?8-i:0;
-#endif
 		task[i]->priority=5;
 		task[i]->blocked=0;
 		task[i]->pid=i;
@@ -64,19 +58,16 @@ void task_init(void){
 		initlock(&(task[i]->lk), "proc");
 		task[i]->thread.sp=(unsigned long long)task[i]+TASK_SIZE;
 		task[i]->thread.ra=(unsigned long long)&first_switch_to;
-#ifdef SJF
-		printf("[PID = %d] Process Create Successfully! counter = %d\n",task[i]->pid, task[i]->counter);
-#endif
-#ifdef PRIORITY
 		printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
-#endif
 	}
+	idle();
 }
 
 void do_timer(void){
+	timer_tick();
 #ifdef SJF
 	printf("[PID = %d] Context Calculation: counter = %d\n",current->pid, current->counter);
-	if(current->counter<=0||--current->counter<=0){
+	if(!current->pid||current->counter<=0||--current->counter<=0){
 		schedule();
 	}
 #endif
@@ -93,38 +84,35 @@ void schedule(void){
 	int i, c, next,prio;
 	struct task_struct **p;
 
-	while(1){
-		i=NR_TASKS;
-		c=-1;
-		next=0;
-		prio=-1;
-		p=&task[NR_TASKS];
+	i=NR_TASKS;
+	c=-1;
+	next=0;
+	prio=-1;
+	p=&task[NR_TASKS];
 #ifdef SJF
-		while(--i){
-			if(!*(--p)) continue;
-			if((*p)->state==TASK_RUNNING&&(*p)->counter>0){
-				if(c<0||c>(*p)->counter) c=(*p)->counter,next=i;//if p is the first non-empty task or p's counter is smaller, then choose it.
-			}
+	while(--i){
+		if(!*(--p)) continue;
+		if((*p)->state==TASK_RUNNING&&(*p)->counter>0){
+			if(c<0||c>(*p)->counter) c=(*p)->counter,next=i;//if p is the first non-empty task or p's counter is smaller, then choose it.
 		}
-		if(c>0) break;
-		for(int i=1;i<=LAB_TEST_NUM;i++) if(task[i]->state==TASK_RUNNING) {
-			task[i]->counter=rand();
-			printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
-		}
+	}
+	for(int i=1;i<=LAB_TEST_NUM;i++) if(task[i]->state==TASK_RUNNING&&task[i]->counter==0) {
+		task[i]->counter=rand();
+		printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
+	}
 #endif
 #ifdef PRIORITY
-		while(--i){
-			if(!*(--p)) continue;
-			if((*p)->state==TASK_RUNNING&&(*p)->counter>0){
-				if(c<0||prio>(*p)->priority) c=(*p)->counter,prio=(*p)->priority,next=i;//if p is the first non-empty one or p is prior than the last one, then choose it.
-				else if(prio==(*p)->priority){//else if p'priority equals the last one, compary the counter and choose the smaller one.
-					if(c>(*p)->counter) c=(*p)->counter,next=i;
-				}
+	while(--i){
+		if(!*(--p)) continue;
+		if((*p)->state==TASK_RUNNING&&(*p)->counter>0){
+			if(c<0||prio>(*p)->priority) c=(*p)->counter,prio=(*p)->priority,next=i;//if p is the first non-empty one or p is prior than the last one, then choose it.
+			else if(prio==(*p)->priority){//else if p'priority equals the last one, compary the counter and choose the smaller one.
+				if(c>(*p)->counter) c=(*p)->counter,next=i;
 			}
 		}
-		if(c>0)break;
-#endif
 	}
+	if(c>0)break;
+#endif
 	if(current!=task[next]) printf("[!] Switch from task %d [task struct: %p, sp: %p] to task %d [task struct: %p, sp: %p], prio: %d, counter: %d\n",current->pid,(uint64)current,current->thread.sp,task[next]->pid,(uint64)task[next],task[next]->thread.sp,task[next]->priority, task[next]->counter);
 
 #ifdef PRIORITY
@@ -135,10 +123,6 @@ void schedule(void){
 	}
 #endif
 
-	//acquiresleep(&lk);
-	//printf("%s current pid=%d\n",lk.name, lk.owner);
-	//releasesleep(&lk);
-
 	switch_to(task[next]);
 }
 
@@ -147,12 +131,8 @@ void switch_to(struct task_struct* next){
 	__switch_to(&current, &next);
 }
 
-/*  */
-void dead_loop(void){
-	// fpioa_pin_init();
-	// dmac_init();
-	// sdcard_init();
-	// test_sdcard();
+void task_test(void){
+	
 	while(1);
 }
 
@@ -262,6 +242,9 @@ void sleep(void *chan, struct spinlock *lk)
 	}
 	current->chan=chan;
 	current->state=TASK_SLEEPING;
+	#ifdef DEBUG
+	printf("sleep pid:%d\n", current->pid);
+	#endif
 	schedule();
 	current->chan=0;
 	if(lk!=&current->lk)
@@ -276,11 +259,12 @@ void wakeup(void *chan)
 	for(int i=1;i<NR_TASKS;i++)
 	{
 		if(task[i]==0) continue;
-		acquire(&(task[i]->lk));
+		//acquire(&(task[i]->lk));
 		if(task[i]->state==TASK_SLEEPING && task[i]->chan==chan)
 		{
 			task[i]->state=TASK_RUNNING;
+			printf("wake up pid:%d\n", i);
 		}
-		release(&(task[i]->lk));
+		//release(&(task[i]->lk));
 	}
 }

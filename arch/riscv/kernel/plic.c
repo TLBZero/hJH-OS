@@ -10,7 +10,7 @@
 // the riscv Platform Level Interrupt Controller (PLIC).
 //
 
-void plicinit(void) {
+void plic_init(void) {
 	writed(1, PLIC_BASE_ADDR + DISK_IRQ * sizeof(uint32));
 	writed(1, PLIC_BASE_ADDR + UART_IRQ * sizeof(uint32));
 
@@ -20,9 +20,9 @@ void plicinit(void) {
 }
 
 void
-plicinithart(void)
+plic_inithart(void)
 {
-  int hart = cpuid();
+  int hart = 0; // cpuid();
   #ifdef QEMU
   // set uart's enable bit for this hart's S-mode. 
   *(uint32*)PLIC_SENABLE(hart)= (1 << UART_IRQ) | (1 << DISK_IRQ);
@@ -43,7 +43,7 @@ plicinithart(void)
 int
 plic_claim(void)
 {
-  int hart = cpuid();
+  int hart = 0; //cpuid();
   int irq;
   #ifndef QEMU
   irq = *(uint32*)PLIC_MCLAIM(hart);
@@ -57,7 +57,7 @@ plic_claim(void)
 void
 plic_complete(int irq)
 {
-  int hart = cpuid();
+  int hart = 0; //cpuid();
   #ifndef QEMU
   *(uint32*)PLIC_MCLAIM(hart) = irq;
   #else

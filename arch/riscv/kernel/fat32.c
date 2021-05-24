@@ -357,6 +357,15 @@ static void inline downEntry(struct dirent *ep){
     release(&ecache.lock);
 }
 
+struct dirent *edup(struct dirent *entry){
+    if (entry != 0) {
+        acquire(&ecache.lock);
+        entry->refcnt++;
+        release(&ecache.lock);
+    }
+    return entry;
+}
+
 /**
  * @brief 将entry指向的file内容读取到用户指定的地址上
  * 
@@ -385,15 +394,6 @@ int eread(struct dirent *entry, uint64 dst, uint off, uint num){
     }
 
     return total;
-}
-
-struct dirent *edup(struct dirent *entry){
-    if (entry != 0) {
-        acquire(&ecache.lock);
-        entry->refcnt++;
-        release(&ecache.lock);
-    }
-    return entry;
 }
 
 /**

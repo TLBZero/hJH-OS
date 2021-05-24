@@ -3,6 +3,7 @@
 #include "put.h"
 #include "sched.h"
 
+// #define DEBUG
 // 初始化 
 void initlock(struct spinlock *lk, char *name)
 {
@@ -16,8 +17,10 @@ void acquire(struct spinlock *lk)
 {
 	//关闭时钟中断
 	//intr_off();
-	if(holding(lk))
-		panic("acquire error, already acquired\n");
+	if(holding(lk)){
+		printf("%s ", lk->name);
+		panic("acquire error, already acquired!\n");
+	}
 	
 	//spin
 	while(__sync_lock_test_and_set(&lk->lock, 1) != 0)
@@ -27,7 +30,8 @@ void acquire(struct spinlock *lk)
 	lk->owner=getpid();
 
 	#ifdef DEBUG
-	printf("acquire sucessfully\n");
+	puts(lk->name);
+	puts(" acquire sucessfully!\n");
 	#endif
 
 	//intr_on();
@@ -40,7 +44,7 @@ void release(struct spinlock *lk)
 	//intr_off()；
 	if(!holding(lk))
 	{
-		panic("already have released\n");
+		panic("release error, already released!\n");
 		//intr_on();
 		return;
 	}
@@ -52,7 +56,8 @@ void release(struct spinlock *lk)
 	lk->owner=-1;
 
 	#ifdef DEBUG
-	puts("release sucessfully\n");
+	puts(lk->name);
+	puts(" release sucessfully!\n");
 	#endif
 	//intr_on();
 	return;

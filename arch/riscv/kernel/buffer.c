@@ -5,6 +5,7 @@
 #include "sdcard.h"
 #include "sleeplock.h"
 #include "disk.h"
+#define DEBUG
 
 struct buffer_head buf[BUFNR+1]; // buf[0] acts as head
 static struct buffer_head* free_list;
@@ -16,7 +17,7 @@ static struct spinlock mutex;
 void binit(void){
     struct buffer_head *bh;
     free_list = &buf[0];
-    initlock(&mutex,  "buffer");
+    initlock(&mutex,  "bcache");
 
     // Init buffer_head and link them together
     for(bh = free_list; bh < free_list+BUFNR; bh++){
@@ -24,7 +25,7 @@ void binit(void){
         bh->b_count=0;
         bh->b_dev=-1;
         bh->b_dirt=0;
-        initsleeplock(&bh->b_lock, "buffer");
+        initsleeplock(&bh->b_lock, "buf");
         bh->b_uptodate = 0;
         bh->b_next = bh+1;
         bh->b_prev = bh-1;
@@ -101,13 +102,12 @@ struct buffer_head* bread(uint dev, uint blocknr){
     bh = getblk(dev, blocknr);
     if(!bh->b_uptodate){
         disk_read(bh);
-        // Operation fails
-        if(!bh->b_uptodate){
-            brelse(bh);
-            return NULL;
-        }
+        bh->b_uptodate = 1;
     }
     liftBuffer(bh);
+    #ifdef DEBUG
+    printf("bread done!\n");
+    #endif
     return bh;
 }
 
@@ -117,6 +117,9 @@ struct buffer_head* bread(uint dev, uint blocknr){
 void bwrite(struct buffer_head *bh){
     if(!holdingsleep(&bh->b_lock)) panic("[bwrite]Not holding lock!");
     disk_write(bh);
+    #ifdef DEBUG
+    printf("bwrite done!\n");
+    #endif
 }
 
 /**
@@ -124,8 +127,31 @@ void bwrite(struct buffer_head *bh){
  */
 void brelse(struct buffer_head* bh){
     if(!bh) return; // NULL Pointer, no operations
-    
+
     if(!(bh->b_count--)) panic("[brelse] Trying to free free buffer!\n");
     if(bh->b_count == 0) downBuffer(bh);
     releasesleep(&bh->b_lock);
+    #ifdef DEBUG
+    printf("brelse done!\n");
+    #endif
+}
+
+void btest(){
+    static int xxx = 0;
+    struct buffer_head* bh;
+    if(getpid()==1){
+        bh = bread(0, 3);
+        for(int i=0;i<BSIZE;i++) bh->buf[i]=0;
+        bwrite(bh);
+        while(!xxx);
+        brelse(bh);
+    }else{
+        xxx=1;
+        bh = bread(0, 3);
+        for(int i=1;i<=BSIZE;i++){
+            printf("%x ", bh->buf[i-1]);
+            if(i%16==0) puts("\n");
+        }
+        brelse(bh);
+    }
 }
