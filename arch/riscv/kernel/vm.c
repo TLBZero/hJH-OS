@@ -56,8 +56,8 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
     uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
     while(pgStart<=pgEnd){
         pte_t* pte=walk(pgtbl, pgStart, 1);
-        if(pte==0) puts("[Error!] Overflow!\n");        //overflow
-        //else if(*pte & PTE_V);  //remap
+        if(pte==0) panic("walk error, overflow!");
+        else if(*pte & PTE_V) panic("walk error, remap!");
         else *pte = PA2PTE(pa) | PTE_V | perm;
         pgStart+=PAGE_SIZE;
         pa+=PAGE_SIZE;
@@ -129,33 +129,20 @@ void paging_init(){
     create_mapping(kernel_pagetable,KERNELBASE,KERNELBASE,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);
     create_mapping(kernel_pagetable,(uint64)rodata_start,(uint64)rodata_start,(uint64)rodata_end-(uint64)rodata_start,PTE_R);
     create_mapping(kernel_pagetable,(uint64)data_start,(uint64)data_start,(uint64)data_end-(uint64)data_start,PTE_R|PTE_W);
-    create_mapping(kernel_pagetable,(uint64)bss_start,(uint64)bss_start,KERNELSIZE-(uint64)bss_start+(uint64)text_start,PTE_R|PTE_W);
+    create_mapping(kernel_pagetable,(uint64)bss_start,(uint64)bss_start, MEM_END-(uint64)bss_start,PTE_R|PTE_W);
 
     create_mapping(kernel_pagetable,SBI_HIGH_BASE,SBIBASE,SBISIZE,PTE_R|PTE_X);
-    create_mapping(kernel_pagetable,KERNEL_HIGH_BASE,(uint64)text_start,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);
-    create_mapping(kernel_pagetable,KERNEL_HIGH_BASE+(uint64)rodata_start-(uint64)text_start,(uint64)rodata_start,(uint64)rodata_end-(uint64)rodata_start,PTE_R);
-    create_mapping(kernel_pagetable,KERNEL_HIGH_BASE+(uint64)data_start-(uint64)text_start,(uint64)data_start,(uint64)data_end-(uint64)data_start,PTE_R|PTE_W);
-    create_mapping(kernel_pagetable,KERNEL_HIGH_BASE+(uint64)bss_start-(uint64)text_start,(uint64)bss_start,KERNELSIZE-(uint64)bss_start+(uint64)text_start,PTE_R|PTE_W);
+    create_mapping(kernel_pagetable,KERNEL_HIGH_BASE,KERNELBASE,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);
+    create_mapping(kernel_pagetable,PHY2VIRT((uint64)rodata_start),(uint64)rodata_start,(uint64)rodata_end-(uint64)rodata_start,PTE_R);
+    create_mapping(kernel_pagetable,PHY2VIRT((uint64)data_start),(uint64)data_start,(uint64)data_end-(uint64)data_start,PTE_R|PTE_W);
+    create_mapping(kernel_pagetable,PHY2VIRT((uint64)bss_start),(uint64)bss_start,MEM_END-(uint64)bss_start,PTE_R|PTE_W);
 
     asm volatile("csrw satp, %0"::"r"(SV39|((uint64)kernel_pagetable>>12)));
     asm volatile("sfence.vma");
 
-    // uint64 satp;
-    // r_csr(satp, satp);
-    // printf("satp:%p\n",satp);
-
-    // for(int level = 2; level > 0; level--){
-    //     pte_t* pte = &kernel_pagetable[PX(level, KERNEL_HIGH_BASE)];
-    //     printf("[1]pte:%p\n", pte);
-    //     if(*pte & PTE_V) kernel_pagetable = (pte_t*)PTE2PA(*pte);
-    //     else{//or we need to add this pagetable
-    //         kernel_pagetable = (pde_t *)(K_VA2PA((uint64)alloc_pages(1)));
-    //         *pte = PA2PTE(kernel_pagetable) | PTE_V;
-    //     }
-    // }
-    //printf("testMMU:%p\n", kwalkaddr(kernel_pagetable, KERNEL_HIGH_BASE));
-
+    printf("testMMU:%p\n", kwalkaddr(kernel_pagetable, MEM_HIGH_END-1));
     slub_init();
+    printf("[vm]paging init donw!\n");
     return;
 }
 

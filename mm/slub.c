@@ -116,16 +116,13 @@ void page_init()
 	if(page_base == NULL)
 		while(1);
 
-	printf("[slub_init]test1\n");
 
 	memset(page_base, 0, page_size << PAGE_SHIFT);
-    
-	printf("[slub_init]test2\n");
 
     set_page_attr(page_base, page_size, PAGE_RESERVE);
 
 	#ifdef DEBUG
-	printf("[slub_init]Down!\n");
+	printf("[page_init]Down!\n");
 	#endif
 }
 
@@ -239,7 +236,6 @@ void slub_init()
 	initlock(&mutex, "slub");
 	for(int i = 0; i < NR_PARTIAL; i++)
 		slub_allocator[i] = kmem_cache_create(kmem_cache_name[i], kmem_cache_objsize[i], 8, 0, NULL);
-	return;
 	#ifdef DEBUG
 	printf("[slub_init]Slub Init Down!\n");
 	#endif

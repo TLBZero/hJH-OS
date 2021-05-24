@@ -60,6 +60,7 @@
 #endif
 #define SBI_HIGH_BASE       (PHY2VIRT(SBIBASE))
 #define KERNEL_HIGH_BASE    (PHY2VIRT(KERNELBASE))
+#define MEM_HIGH_END        (PHY2VIRT(MEM_END))
 
 #ifdef QEMU
 // virtio mmio interface

@@ -1,6 +1,8 @@
 #include "put.h"
 #include "rustsbi.h"
 #include "spinlock.h"
+static struct spinlock printlock;
+
 int puts(const char *s)
 {
     while (*s != '\0')
@@ -11,7 +13,7 @@ int puts(const char *s)
     return 0;
 }
 
-void putchar(const char ch){
+static void putchar(const char ch){
     console_putchar(ch);
 }
 
@@ -44,8 +46,14 @@ static void printint(int xx, int base, int sign)
     while(--i >= 0) putchar(buf[i]);
 }
 
+void printf_init(){
+    initlock(&printlock, "printf");
+    printf("printf init down! lockaddr:%p\n", &printlock);
+}
+
 void printf(char *fmt, ...)
 {
+    acquire(&printlock);
     va_list ap;
     va_start(ap, fmt);
     while (*fmt)
@@ -71,10 +79,12 @@ void printf(char *fmt, ...)
         fmt++;
     }
     va_end(ap);
+    release(&printlock);
 }
 
 void panic(const char *s)
 {
+    puts("panic");
     printf("[Kernel Panic]: %s\n", s);
     while(1);
 }

@@ -17,7 +17,7 @@ extern void first_switch_to();
 
 void task_init(void){
 	//initsleeplock(&lk, "wdl");
-	puts("task init...\n");
+	printf("task init...\n");
 	task[0]=current=(struct task_struct*)TASK_VM_START;		//Task0 Base
 	task[0]->state=TASK_RUNNING;
 	task[0]->counter=0;
@@ -128,7 +128,7 @@ void schedule(void){
 	if(current!=task[next]) printf("[!] Switch from task %d [task struct: %p, sp: %p] to task %d [task struct: %p, sp: %p], prio: %d, counter: %d\n",current->pid,(uint64)current,current->thread.sp,task[next]->pid,(uint64)task[next],task[next]->thread.sp,task[next]->priority, task[next]->counter);
 
 #ifdef PRIORITY
-	puts("task's priority changed\n");
+	printf("task's priority changed\n");
 	for(int i=1;i<=LAB_TEST_NUM;i++){
 		task[i]->priority=rand();
 		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
@@ -223,7 +223,8 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 
 /* 返回当前进程的pid*/
 long getpid(void){
-	return current->pid;
+	if(current) return current->pid;
+	else return -1;//For boot
 }
 
 /* 返回当前进程的ppid*/

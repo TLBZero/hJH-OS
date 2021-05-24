@@ -12,12 +12,7 @@ trap_s:
         csrr a1, sepc
         mv a2, sp
 		call strap_handler
-
-        csrr t0, time
-        li t1, 0xA00000
-        addw a0, t0, t1
-        li a7, 0
-	ecall                   # sbi_set_timermake
+		call timer_tick
 
         load_all
 	sret
@@ -43,7 +38,7 @@ __switch_to:
 ret
 
 .global first_switch_to
-.type first_switch_to,@function
+.type first_switch_to, @function
 first_switch_to:
 	la t0, dead_loop
 	# li t0, 0x100
@@ -98,3 +93,19 @@ ret_from_fork:
 	
 	ld x10, 200(a0)
 sret
+
+.global env_init
+.type env_init, @function
+env_init:
+	# set sstatus[sie] = 1, sstatus[ssie], sstatus[spp] = 1 sstatus[sum] = 1
+	li t0, 0x40122
+	csrs sstatus, t0
+
+	# set sie[ssie], sie[stie] = 1
+	li t0, 0x22
+	csrs sie, t0
+
+	# set virtual address of trap_s
+	la t0, trap_s
+	csrw stvec, t0
+ret

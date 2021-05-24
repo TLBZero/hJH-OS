@@ -27,7 +27,7 @@ void acquire(struct spinlock *lk)
 	lk->owner=getpid();
 
 	#ifdef DEBUG
-	puts("acquire sucessfully\n");
+	printf("acquire sucessfully\n");
 	#endif
 
 	//intr_on();

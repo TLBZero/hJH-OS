@@ -1,6 +1,6 @@
 #ifndef VM_H
 #define VM_H
-#define DEBUG
+// #define DEBUG
 #include "slub.h"
 #include "buddy.h"
 #include "types.h"

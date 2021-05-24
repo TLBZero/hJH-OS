@@ -7,7 +7,7 @@ typedef __builtin_va_list va_list;
 #define va_arg(v,l) __builtin_va_arg(v,l)
 
 int puts(const char *s);
-void putchar(const char ch);
+void printf_init();
 void printf(char *fmt, ...);
 void print_logo();
 void panic(const char *s);
