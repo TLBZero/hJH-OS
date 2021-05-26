@@ -5,7 +5,7 @@
 #include "sdcard.h"
 #include "sleeplock.h"
 #include "disk.h"
-#define DEBUG
+//#define DEBUG
 
 struct buffer_head buf[BUFNR+1]; // buf[0] acts as head
 static struct buffer_head* free_list;
@@ -34,7 +34,7 @@ void binit(void){
     free_list->b_prev = bh;
     bh->b_next = free_list;
     #ifdef DEBUG
-    printf("[binit]Done!\n");
+    printf("[binit]buffer init done!\n");
     #endif
 }
 

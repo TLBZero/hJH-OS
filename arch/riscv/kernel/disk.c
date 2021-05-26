@@ -10,6 +10,7 @@
 #else
 #include "virtio.h"
 #endif 
+#define DEBUG
 
 void disk_init(void)
 {
@@ -19,7 +20,7 @@ void disk_init(void)
 	sdcard_init();
     #endif
     #ifdef DEBUG
-    puts("disk init done!\n");
+    puts("[disk]disk init done!\n");
     #endif
 }
 

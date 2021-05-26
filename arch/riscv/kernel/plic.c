@@ -5,7 +5,7 @@
 #include "plic.h"
 #include "sched.h"
 #include "put.h"
-
+#define DEBUG
 //
 // the riscv Platform Level Interrupt Controller (PLIC).
 //
@@ -15,7 +15,7 @@ void plic_init(void) {
 	writed(1, PLIC_BASE_ADDR + UART_IRQ * sizeof(uint32));
 
 	#ifdef DEBUG 
-	printf("plicinit\n");
+	printf("[plic]plic init done!\n");
 	#endif 
 }
 
@@ -35,7 +35,7 @@ plic_inithart(void)
   *(hart0_m_int_enable_hi) = readd(hart0_m_int_enable_hi) | (1 << (UART_IRQ % 32));
   #endif
   #ifdef DEBUG
-  printf("plicinithart\n");
+  printf("[plic]plic init hart done!\n");
   #endif
 }
 

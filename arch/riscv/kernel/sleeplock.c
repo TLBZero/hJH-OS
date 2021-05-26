@@ -2,7 +2,7 @@
 #include "spinlock.h"
 #include "sched.h"
 #include "put.h"
-#define DEBUG
+//#define DEBUG
 void acquiresleep(struct sleeplock *lk)
 {
     acquire(&lk->lk);

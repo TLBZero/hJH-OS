@@ -196,7 +196,7 @@ void virtio_disk_rw(struct buffer_head *b, int write)
   }
   // format the three descriptors.
   // qemu's virtio-blk.c reads them.
-
+  
   struct virtio_blk_outhdr
   {
     uint32 type;
@@ -212,7 +212,7 @@ void virtio_disk_rw(struct buffer_head *b, int write)
   buf0.sector = sector;
   // buf0 is on a kernel stack, which is not direct mapped,
   // thus the call to kvmpa().
-  disk.desc[idx[0]].addr = (uint64)kwalkaddr(current->mm->pagetable_address, (uint64)&buf0);
+  disk.desc[idx[0]].addr = (uint64)kwalkaddr(kernel_pagetable, (uint64)&buf0);
   disk.desc[idx[0]].len = sizeof(buf0);
   disk.desc[idx[0]].flags = VRING_DESC_F_NEXT;
   disk.desc[idx[0]].next = idx[1];
@@ -244,7 +244,7 @@ void virtio_disk_rw(struct buffer_head *b, int write)
 
   // Wait for virtio_disk_intr() to say request has finished.
   while (b->disk == 1){
-    // sleep(b, &disk.vdisk_lock);
+    //sleep(b, &disk.vdisk_lock);
   }
 
   disk.info[idx[0]].b = 0;
@@ -255,7 +255,6 @@ void virtio_disk_rw(struct buffer_head *b, int write)
 void virtio_disk_intr()
 {
   // acquire(&disk.vdisk_lock);
-
   while ((disk.used_idx % NUM) != (disk.used->id % NUM))
   {
     int id = disk.used->elems[disk.used_idx].id;

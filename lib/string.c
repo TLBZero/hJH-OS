@@ -14,7 +14,7 @@ void *memcpy(void *dst, void *src, uint size){
     char *dst_tp = (char *) dst;
     char *src_tp = (char *) src;
     for(uint i = 0; i < size; i++)
-        dst_tp[i]=src_tp[i];
+        *dst_tp++ = *src_tp++;
     return dst;
 };
 
@@ -30,7 +30,7 @@ char* strcpy(char* dst, const char* src){
     return dst;
 }
 
-char* strncpy(char *dst, const char *src, uint n){
+char* strncpy(char *dst, const char *src, int n){
     char *r=dst;
     while(n-- > 0 && (*r++ = *src++) != '\0');
     while(n-- > 0) *r++ = '\0';
@@ -51,7 +51,7 @@ int strlen(const char *str){
     return num;
 }
 
-int strncmp(const char *str1, const char *str2, uint n){
+int strncmp(const char *str1, const char *str2, int n){
     for(;n>0 && *str1!='\0' && *str2!='\0';n--, str1++, str2++){
         if(*str1 != *str2) break;
     }

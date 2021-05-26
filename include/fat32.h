@@ -10,7 +10,7 @@
 #define ATTR_VOLUME_ID      0x08
 #define ATTR_DIRECTORY      0x10
 #define ATTR_ARCHIVE        0x20
-#define ATTR_LONG_NAME      ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID
+#define ATTR_LONG_NAME      0x0F
 
 /* Cluster Marks */
 #define BAD_CLUSTER         0x0FFFFFF7
@@ -82,7 +82,7 @@ typedef struct long_name_entry {
     wchar       name1[5];
     uint8       attr;
     uint8       _type;
-    uint8       chksum;
+    uint8       checksum;
     wchar       name2[6];
     uint16      _fst_clus_lo;
     wchar       name3[2];

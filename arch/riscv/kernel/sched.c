@@ -60,7 +60,6 @@ void task_init(void){
 		task[i]->thread.ra=(unsigned long long)&first_switch_to;
 		printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
-	idle();
 }
 
 void do_timer(void){
@@ -132,7 +131,8 @@ void switch_to(struct task_struct* next){
 }
 
 void task_test(void){
-	
+	// fat_init();
+	// btest();
 	while(1);
 }
 

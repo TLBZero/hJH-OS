@@ -2,6 +2,8 @@
 #include "rustsbi.h"
 #include "spinlock.h"
 static struct spinlock printlock;
+/* For kernel output, printf shouldn't be blocked */
+int printlocking;
 
 int puts(const char *s)
 {
@@ -48,12 +50,13 @@ static void printint(int xx, int base, int sign)
 
 void printf_init(){
     initlock(&printlock, "printf");
-    printf("printf init down!\n", &printlock);
+    printlocking = 0;
+    printf("[printf]printf init down!\n", &printlock);
 }
 
 void printf(char *fmt, ...)
 {
-    acquire(&printlock);
+    if(printlocking) acquire(&printlock);
     va_list ap;
     va_start(ap, fmt);
     while (*fmt)
@@ -79,7 +82,7 @@ void printf(char *fmt, ...)
         fmt++;
     }
     va_end(ap);
-    release(&printlock);
+    if(printlocking) release(&printlock);
 }
 
 void panic(const char *s)

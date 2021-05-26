@@ -140,7 +140,6 @@ void paging_init(){
     asm volatile("csrw satp, %0"::"r"(SV39|((uint64)kernel_pagetable>>12)));
     asm volatile("sfence.vma");
 
-    printf("testMMU:%p\n", kwalkaddr(kernel_pagetable, MEM_HIGH_END-1));
     slub_init();
     printf("[vm]paging init donw!\n");
     return;

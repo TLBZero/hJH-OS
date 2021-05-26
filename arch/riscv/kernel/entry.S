@@ -15,8 +15,8 @@ trap_s:
 
         load_all
 
-		// li t0, 0x100
-		// csrs sstatus, t0
+		li t0, 0x100
+		csrs sstatus, t0
 sret
 
 /* this function do the context switch

@@ -14,6 +14,7 @@ OBJS = \
 	sysproc.o \
 	timer.o \
 	plic.o \
+	fat32.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
