@@ -2,6 +2,7 @@
 #include "spinlock.h"
 
 #include "types.h"
+#include "sysfile.h"
 
 #define TASK_SIZE   (4096)
 #define THREAD_OFFSET  (7 * 0x08)
@@ -26,8 +27,7 @@
 #define PREEMPT_DISABLE 1
 
 /* Lab3中进程的数量以及每个进程初始的时间片 */
-#define LAB_TEST_NUM        2
-#define LAB_TEST_COUNTER    5
+#define LAB_TEST_NUM        0
 
 /* wait的option */
 #define WNOHANG       0
@@ -108,6 +108,7 @@ struct task_struct {
     
     /* Fs */
     struct dirent *cwd;
+    struct file *FTable[PROCOFILENUM];
 };
 
 /* 进程初始化 创建四个dead_loop进程 */ 

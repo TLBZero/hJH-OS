@@ -21,8 +21,9 @@ typedef unsigned long   size_t;
 typedef unsigned long   __off_t;
 
 typedef int pid_t;
-
 typedef long off_t;
+
+typedef uint32 mode_t;
 
 #define NULL ((void*)0)
 

@@ -48,14 +48,14 @@ struct dirent {
     uint32  file_size;
 
     uint32  cur_clus;
-    uint    clus_cnt;
+    uint32  clus_cnt;
 
     /* for OS */
     uint8   dev;
     uint8   dirty;
     uint8   uptodate;
     int     refcnt;
-    uint32  off;               // offset in the parent dir entry, for writing convenience
+    uint32  off;            // offset in the parent dir entry, for writing convenience
     struct dirent *parent;  // because FAT32 doesn't have such thing like inum, use this for cache trick
     struct dirent *next;
     struct dirent *prev;
@@ -88,11 +88,13 @@ typedef struct long_name_entry {
     wchar       name3[2];
 } __attribute__((packed, aligned(4))) long_name_entry_t;
 
+extern struct dirent root;
 
 int fat_init();
 int eread(struct dirent *entry, uint64 dst, uint off, uint num);
 struct dirent *edup(struct dirent *entry);
 int ewrite(struct dirent *entry, uint64 src, uint off, uint num);
+void eput(struct dirent *entry);
 char *formatname(char *name);
 uint8 cal_checksum(uchar* shortname);
 void emake(struct dirent *dp, struct dirent *ep, uint off);
@@ -103,3 +105,5 @@ void eremove(struct dirent *entry);
 int enext(struct dirent *dp, struct dirent *ep, uint off, int *count);
 struct dirent *dirlookup(struct dirent *dp, char *filename, uint *poff);
 struct dirent *ename(char *path);
+struct dirent *enameparent(char *path, char* name);
+int epath(struct dirent* ep, char *buf, uint size);

@@ -8,7 +8,7 @@
 #include "vm.h"
 #include "string.h"
 #include "timer.h"
-#define DEBUG
+// #define DEBUG
 struct task_struct* current;
 struct task_struct* task[NR_TASKS];
 
@@ -29,6 +29,9 @@ void task_init(void){
 	task[0]->chan=0;
 	initlock(&(task[0]->lk), "proc");
 	task[0]->thread.sp=TASK_VM_START+TASK_SIZE;	//Task0 Base + 4kb
+
+	task[0]->cwd = ename("/");
+	memset(task[0]->FTable, 0, sizeof(struct file*)*PROCOFILENUM);
 
 	for(int i=1;i<=LAB_TEST_NUM;i++){//init task[i]
 		task[i]=(struct task_struct*)(TASK_VM_START+i*TASK_SIZE);
@@ -58,6 +61,10 @@ void task_init(void){
 		initlock(&(task[i]->lk), "proc");
 		task[i]->thread.sp=(unsigned long long)task[i]+TASK_SIZE;
 		task[i]->thread.ra=(unsigned long long)&first_switch_to;
+
+		task[i]->cwd = ename("/");
+		memset(task[i]->FTable, 0, sizeof(struct file*)*PROCOFILENUM);
+
 		printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 }

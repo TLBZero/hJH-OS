@@ -15,6 +15,7 @@ OBJS = \
 	timer.o \
 	plic.o \
 	fat32.o \
+	sysfile.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
@@ -100,6 +101,9 @@ timer.o:
 
 plic.o:
 	$(GCC) $(CFLAG) -c plic.c -o $(BUILD)/plic.o
+
+sysfile.o:
+	$(GCC) $(CFLAG) -c sysfile.c -o $(BUILD)/sysfile.o
 
 vmlinux: $(LDSCRIPT) $(LKOBJS)
 	$(LD) -T $(LDSCRIPT) $(LKOBJS) -o ../../../vmlinux

@@ -3,7 +3,7 @@
 #include "put.h"
 #include "string.h"
 #include "sched.h"
-#define DEBUG
+// #define DEBUG
 union dentry {
     short_name_entry_t  sne;
     long_name_entry_t   lne;
@@ -34,7 +34,7 @@ static struct entry_cache {
 } ecache;
 
 /* root也作为cache的head */
-static struct dirent root;
+struct dirent root;
 
 static uint getClusCnt(uint32 firstClus);
 /**
@@ -95,7 +95,6 @@ int fat_init(){
     strncpy(root.filename, "/", FAT32_MAX_FILENAME);
     root.prev = &root;
     root.next = &root;
-    printf("root clus cnt:%d\n", root.clus_cnt);
     for(struct dirent *de = ecache.entries; de < ecache.entries + ENTRY_CACHE_NUM; de++) {
         de->dev = 0;
         de->uptodate = 0;
@@ -109,7 +108,9 @@ int fat_init(){
         root.next->prev = de;
         root.next = de;
     }
+    #ifdef DEBUG
     printf("[fat_init]fat init done!\n");
+    #endif
     return 0;
 }
 
@@ -156,9 +157,8 @@ static uint32 readFAT(uint32 cluster){
     bh = bread(0, sec);
  
     uint32 res =  *(uint32 *)(bh->buf + off);
-    printf("[readFAT]sec:%d, off:%x, res:%x\n", sec, off, res);
     brelse(bh);
-    return res;
+    return res&ENTRY_MASK;
 }
 
 /**
@@ -170,7 +170,8 @@ static uint32 readFAT(uint32 cluster){
  */
 static int writeFAT(uint32 cluster, uint32 content){
     //Overflow
-    if(cluster <=1 || cluster > FAT.DataClusCnt + 1) return -1;
+    if(cluster <=1 || cluster > FAT.DataClusCnt + 1)
+        return -1;
 
     struct buffer_head *bh;
     
@@ -178,7 +179,7 @@ static int writeFAT(uint32 cluster, uint32 content){
     uint32 off = fat_offset_of_clus(cluster);
     bh = bread(0, sec);
     //Write into buffer first
-    *((uint32 *)(bh->buf + off)) = content;
+    *((uint32 *)(bh->buf + off)) = content&ENTRY_MASK;
     bwrite(bh);
     brelse(bh);
 
@@ -192,7 +193,8 @@ static int writeFAT(uint32 cluster, uint32 content){
  */
 static void emptyClus(uint32 cluster){
     //Overflow
-    if(cluster <=1 || cluster > FAT.DataClusCnt + 1) panic("Empty non-existing cluster");
+    if(cluster <=1 || cluster > FAT.DataClusCnt + 1)
+        panic("Empty non-existing cluster");
 
     struct buffer_head *bh;
     
@@ -261,7 +263,7 @@ static uint reallocCurClus(struct dirent* entry, uint off, uint8 alloc){
     uint cnt;
     if(rlvClus >= entry->clus_cnt){
         // Go to the last one first
-        while(readFAT(entry->cur_clus)&ENTRY_MASK<FAT32_EOC)
+        while(readFAT(entry->cur_clus)<FAT32_EOC)
             entry->cur_clus = readFAT(entry->cur_clus);
         while(rlvClus > entry->clus_cnt){
             if(!alloc) return -1;
@@ -351,7 +353,7 @@ struct dirent *edup(struct dirent *entry){
         release(&ecache.lock);
     }
     #ifdef DEBUG
-    printf("%s edup success!\n", entry->filename);
+    printf("%s edup success! ref:%d\n", entry->filename, entry->refcnt);
     #endif
     return entry;
 }
@@ -366,9 +368,10 @@ struct dirent *edup(struct dirent *entry){
  * @return 成功读取的字符数，或错误返回-1
  */
 int eread(struct dirent *entry, uint64 dst, uint off, uint num){
-    if(entry->attribute & ATTR_DIRECTORY) panic("eread error, read content of directory!");
+    if(entry->attribute & ATTR_DIRECTORY)
+        panic("eread error, read content of directory!");
 
-    if(off>=entry->file_size || off + num < off) return -1;
+    if(off>entry->file_size || off + num < off) return -1;
     // read to the end of file, at most
     num = (off + num <= entry->file_size) ? (num) : (entry->file_size - off);
     off = reallocCurClus(entry, off, 0);
@@ -396,8 +399,10 @@ int eread(struct dirent *entry, uint64 dst, uint off, uint num){
  * @return 成功写入的字符数，或错误返回-1
  */
 int ewrite(struct dirent *entry, uint64 src, uint off, uint num){
-    if(entry->attribute & ATTR_DIRECTORY) panic("ewrite error, write content of directory!");
+    if(entry->attribute & ATTR_DIRECTORY)
+        panic("ewrite error, write content of directory!");
     if(off + num < off || entry->attribute & ATTR_READ_ONLY) return -1;
+
     //Empty file
     if(entry->first_clus == 0){
         entry->cur_clus = entry->first_clus = allocClus(entry->dev);
@@ -416,7 +421,6 @@ int ewrite(struct dirent *entry, uint64 src, uint off, uint num){
     entry->dirty = 1;
 
     return total;
-
 }
 
 
@@ -432,9 +436,9 @@ static struct dirent *eget(struct dirent *parent, char *name){
     if(name){// Name given, search all cache
         for(ep=root.next;ep!=&root;ep=ep->next)
             if(ep->uptodate && ep->parent == parent && strncmp(ep->filename, name, FAT32_MAX_FILENAME) == 0){
-                if(ep->refcnt++==0) ep->parent++; //Vital
+                if(ep->refcnt++==0) ep->parent->refcnt++; //Vital
                 #ifdef DEBUG
-                printf("%s eget success!\n", ep->filename);
+                printf("%s eget success! ref:%d, par:%p %s\n", ep->filename, ep->refcnt, ep->parent, ep->parent->filename);
                 #endif
                 release(&ecache.lock);
                 return ep;
@@ -450,7 +454,7 @@ static struct dirent *eget(struct dirent *parent, char *name){
             ep->uptodate=0;
             if(name) strncpy(ep->filename, name, FAT32_MAX_FILENAME);
             #ifdef DEBUG
-            printf("%s eget success!\n", ep->filename);
+            printf("%s eget success! ref:%d, par:%p %s\n", ep->filename, ep->refcnt, ep->parent, ep->parent->filename);
             #endif
             release(&ecache.lock);
             return ep;
@@ -462,7 +466,8 @@ static struct dirent *eget(struct dirent *parent, char *name){
 /**
  * @brief 释放掉cache entry
  */
-static void eput(struct dirent *entry){
+void eput(struct dirent *entry){
+    printf("eput:%p name:%s, ref:%d, dirty:%d\n",entry, entry->filename, entry->refcnt, entry->dirty);
     acquire(&ecache.lock);
     if (entry != &root && entry->refcnt == 1){
         release(&ecache.lock);
@@ -476,7 +481,7 @@ static void eput(struct dirent *entry){
         struct dirent *parent = entry->parent;
         if(--parent->refcnt==0) eput(parent);
         #ifdef DEBUG
-        printf("%s eput success!\n", entry->filename);
+        printf("%s eput success! ref:%d\n", entry->filename, entry->refcnt);
         #endif
         return;
     }
@@ -485,12 +490,11 @@ static void eput(struct dirent *entry){
         panic("eput error, trying to put released entry cache!");
     release(&ecache.lock);
     #ifdef DEBUG
-    printf("%s eput success!\n", entry->filename);
+    printf("%s eput success! ref:%d\n", entry->filename, entry->refcnt);
     #endif
 }
 
-char *formatname(char *name)
-{
+char *formatname(char *name){
     static char illegal[] = { '\"', '*', '/', ':', '<', '>', '?', '\\', '|', 0 };
     char *p;
     while (*name == ' ' || *name == '.') { name++; }
@@ -508,8 +512,7 @@ char *formatname(char *name)
     return name;
 }
 
-static void generate_shortname(char *shortname, char *name)
-{
+static void generate_shortname(char *shortname, char *name){
     static char illegal[] = { '+', ',', ';', '=', '[', ']', 0 };   // these are legal in l-n-e but not s-n-e
     int i = 0;
     char c, *p = name;
@@ -549,8 +552,7 @@ static void generate_shortname(char *shortname, char *name)
     }
 }
 
-uint8 cal_checksum(uchar* shortname)
-{
+uint8 cal_checksum(uchar* shortname){
     uint8 sum = 0;
     for (int i = SHORT_NAME_LEN; i != 0; i--) {
         sum = ((sum & 1) ? 0x80 : 0) + (sum >> 1) + *shortname++;
@@ -567,9 +569,14 @@ uint8 cal_checksum(uchar* shortname)
  * @param off entry在目录下的偏移量
  */
 void emake(struct dirent *dp, struct dirent *ep, uint off){
-    if (!(dp->attribute & ATTR_DIRECTORY)) panic("emake error, not dir!");
-    if (off%32) panic("emake error, offset not aligned!");
-    // printf("emake dp:%s, ep:%s, off:%d\n", dp->filename, ep->filename, off);
+    if (!(dp->attribute & ATTR_DIRECTORY))
+        panic("emake error, not dir!");
+    if (off%32)
+        panic("emake error, offset not aligned!");
+    #ifdef DEBUG
+    if(ep) printf("emake dp:%s, ep:%s, off:%d\n", dp->filename, ep->filename, off);
+    else printf("emake dp:%s, off:%d\n", dp->filename, off);
+    #endif
     union dentry de;
     memset(&de, 0, 32);
     if(off<=32 && dp!=&root){
@@ -654,7 +661,9 @@ struct dirent *ealloc(struct dirent *dp, char *name, int attr){
         #endif
         return ep;
     }
-    printf("[ealloc]off:%x\n", off);
+    #ifdef DEBUG
+    printf("[ealloc]offset:%x\n", off);
+    #endif
     ep = eget(dp, name);
     acquiresleep(&ep->lock);
     ep->attribute = attr;
@@ -671,13 +680,16 @@ struct dirent *ealloc(struct dirent *dp, char *name, int attr){
         emake(ep, NULL, 32);
     }else ep->attribute |= ATTR_ARCHIVE;
     emake(dp, ep, off);
-    printf("emake done!\n");
+
     liftEntry(ep);
+    ep->dirty = 1;
+    eupdate(ep);// Write updates into disk
     ep->uptodate = 1;
     releasesleep(&ep->lock);
     #ifdef DEBUG
     printf("[ealloc]ealloc success, name:%s, first_clus:%d, clus_cnt:%d\n", ep->filename, ep->first_clus, ep->clus_cnt);
     #endif
+
     return ep;
 }
 
@@ -687,7 +699,12 @@ struct dirent *ealloc(struct dirent *dp, char *name, int attr){
  * @param entry 指定的entry
  */
 void eupdate(struct dirent *entry){
-    if(!entry->dirty) panic("eupdate error, already written!");
+    if(!entry->dirty){
+        #ifdef DEBUG
+        printf("eupdate prompt, already updated!");
+        #endif
+        return;
+    }
     uint8 lneCnt;
     uint32 off = reallocCurClus(entry->parent, entry->off, 0);
     rwClus(entry->parent->cur_clus, 0, &lneCnt, off, 1);
@@ -761,7 +778,9 @@ static void read_long_name(char *filename, union dentry *de){
 
 static uint getClusCnt(uint32 firstClus){
     uint cnt = 0, next;
-    if(firstClus == 0 || firstClus >= FAT32_EOC) return cnt;
+    if(firstClus == 0 || firstClus >= FAT32_EOC)
+        return cnt;
+    
     next = readFAT(firstClus);
     for(cnt=1;next<FAT32_EOC;cnt++){
         firstClus = next;
@@ -790,13 +809,14 @@ int enext(struct dirent *dp, struct dirent *ep, uint off, int *count){
         panic("enext error, ep may be used by others!");
     if(off%32)
         panic("enext error, offset not aligned!");
+
     union dentry de;
     memset(ep->filename, 0, FAT32_MAX_FILENAME+1);
     uint emptyCnt=0, entryCnt=0;
     for(uint32 clusOff;(clusOff=reallocCurClus(dp, off, 0))!=-1;off+=32){
         if(rwClus(dp->cur_clus, 0, &de, clusOff, 32)!=32)
             panic("enext error, rwClus inconsistent!");
-        printf("[de]0: %x\n", de.lne.order);
+            
         if(de.lne.order == DIR_ENTRY_END)
             return -1;
              
@@ -813,13 +833,16 @@ int enext(struct dirent *dp, struct dirent *ep, uint off, int *count){
             uint order = de.lne.order & (~LAST_LONG_ENTRY);
             if(de.lne.order & LAST_LONG_ENTRY)
                 entryCnt = order + 1;
+            #ifdef DEBUG
             printf("Long Name Entry! order:%x, entryCnt:%d\n", de.lne.order, entryCnt);
+            #endif
             read_long_name(ep->filename + (order-1)*LONG_NAME_LEN, &de);
         }
         else{
-            printf("Short Name Entry! \n");
-            if(entryCnt==0){
-                // '.' or '..' dir
+            #ifdef DEBUG
+            printf("Short Name Entry! first cluser:%d\n", de.sne.fst_clus_hi<<16|de.sne.fst_clus_lo);
+            #endif
+            if(entryCnt==0){ // '.' or '..' dir
                 entryCnt = 1;
                 strncpy(ep->filename, de.sne.name, SHORT_NAME_LEN);
             }
@@ -853,8 +876,14 @@ struct dirent *dirlookup(struct dirent *dp, char *filename, uint *poff){
         return edup(dp);
     if(strncmp(filename, "..", FAT32_MAX_FILENAME)==0)
         return edup(dp->parent);
+
     struct dirent* ep = eget(dp, filename);
-    if(ep->uptodate) return ep;  // Found in cache
+    if(ep->uptodate){
+        #ifdef DEBUG
+        printf("dirlookup prompts, found in cache\n");
+        #endif
+        return ep;  // Found in cache
+    }
 
     // Or look through the directory
     uint off = reallocCurClus(dp, 0, 0);
@@ -862,7 +891,9 @@ struct dirent *dirlookup(struct dirent *dp, char *filename, uint *poff){
     uint type = 0;
     uint entCnt = (strlen(filename) + LONG_NAME_LEN - 1) / LONG_NAME_LEN + 1;
     while((type=enext(dp, ep, off, &count))!=-1){
+        #ifdef DEBUG
         printf("type:%d, filename:%s, epfilename:%s\n", type, filename, ep->filename);
+        #endif
         if(type==0&&count>=entCnt&&poff){
             *poff = off;
             poff = 0;
@@ -890,6 +921,28 @@ static int pathNextName(char **path, char* name){
     return 1;
 }
 
+static int getPPath(char *path, char *name){
+    memset(name, 0, FAT32_MAX_FILENAME+1);
+
+    char *p, *end;
+    p = end = path + strlen(path);
+    while(*--p!='/'&&p>path);
+
+    if(*p!='/'){ // CWD is the parent
+        strcpy(name, path);
+        return 0;
+    }
+
+    strcpy(name, p+1);
+    if(p==path) p++; // Root is the parent
+
+    while(p<end) *p++='\0';
+    #ifdef DEBUG
+    printf("[getPPath]ppath:%s\n", path);
+    #endif
+    return 1;
+}
+
 /**
  * @brief 根据给定路径返回file entry
  * 
@@ -901,6 +954,8 @@ struct dirent *ename(char *path){
     if (*path == '/'){
         entry = edup(&root);
         path++;
+        if(*path == '\0')
+            return entry;
     }
     else if (*path != '\0') 
         entry = edup(current->cwd);
@@ -909,7 +964,9 @@ struct dirent *ename(char *path){
     uint8 flag = 1;
     while(flag){
         flag = pathNextName(&path, name);
-        printf("entry:%s, name:%s\n", entry->filename, name);
+        #ifdef DEBUG
+        printf("[ename]entry:%s, name:%s\n", entry->filename, name);
+        #endif
         acquiresleep(&entry->lock);
         if(!(entry->attribute&ATTR_DIRECTORY))
             panic("ename error, path invalid!");
@@ -920,6 +977,52 @@ struct dirent *ename(char *path){
         entry = next;
     }
     return entry;
+}
+
+// name size shall be no less than 255
+struct dirent* enameparent(char* path, char* name){
+    if(getPPath(path, name)==0)
+        return edup(current->cwd);
+
+    return ename(path);
+}
+
+/**
+ * @brief 获取entry所在的路径
+ * 
+ * @param buf 指定存储路径的缓冲区
+ * @param size buffer的大小
+ * @return 返回0表示成功，否则返回-1
+ */
+int epath(struct dirent* ep, char *buf, uint size){
+    if(!ep || !buf || !size) return -1;
+
+    char path[FAT32_MAX_PATH];
+    memset(path, 0, FAT32_MAX_PATH);
+    char *s=path+FAT32_MAX_PATH-1;
+    uint len;
+    if (ep->parent == ep){// Means Root Dir
+        *s-- = '\0';
+        *s = '/';
+    }
+    else{
+        *s = '\0';
+        while (ep->parent!=ep){
+            len = strlen(ep->filename);
+            s -= len;
+            if (s <= path) // Path too long !
+                return -1;
+            strncpy(s, ep->filename, len);
+            *--s = '/';
+            ep = ep->parent;
+        }
+    }
+    
+    len = strlen(s);
+    if(size <= len) return -1; // Buffer too small !
+
+    strncpy(buf, s, len);
+    return 0;
 }
 
 void fat_test(){
@@ -946,27 +1049,27 @@ void fat_test(){
     // printf("test:%s\n", test);
 
 
-    char dirname[FAT32_MAX_FILENAME] = "testDir";
-    char filename[FAT32_MAX_FILENAME] = "testFile.txt";
-    struct dirent* dp = ealloc(&root, dirname, ATTR_DIRECTORY);
-    struct dirent* ep = ealloc(dp, filename, 0);
+    // char dirname[FAT32_MAX_FILENAME] = "testDir";
+    // char filename[FAT32_MAX_FILENAME] = "testFile.txt";
+    // struct dirent* dp = ealloc(&root, dirname, ATTR_DIRECTORY);
+    // struct dirent* ep = ealloc(dp, filename, 0);
 
-    char fileContent[1024];
-    for(int i=0;i<509;i++) fileContent[i] = 'x';
-    fileContent[510] = 't';
-    fileContent[511] = 'e';
-    fileContent[512] = 's';
-    fileContent[513] = 't';
-    for(int i=514;i<1024;i++) fileContent[i] = 'y';
+    // char fileContent[1024];
+    // for(int i=0;i<509;i++) fileContent[i] = 'x';
+    // fileContent[510] = 't';
+    // fileContent[511] = 'e';
+    // fileContent[512] = 's';
+    // fileContent[513] = 't';
+    // for(int i=514;i<1024;i++) fileContent[i] = 'y';
 
-    ewrite(ep, fileContent, 0, 1024);
-    printf("%s %d %d\n", ep->filename, ep->first_clus, ep->clus_cnt);
+    // ewrite(ep, fileContent, 0, 1024);
+    // printf("%s %d %d\n", ep->filename, ep->first_clus, ep->clus_cnt);
 
-    memset(fileContent, 0, 1024);
-    eread(ep, fileContent, 0, 1024);
-    printf("%s\n", fileContent);
+    // memset(fileContent, 0, 1024);
+    // eread(ep, fileContent, 0, 1024);
+    // printf("%s\n", fileContent);
+    // eput(ep);
 
-    eput(ep);
     printf("[fat_test]done!\n");
     while(1);
 }
