@@ -9,9 +9,14 @@
 #include "string.h"
 #include "timer.h"
 #include "pipe.h"
+#include "time.h"
+#include "systemInfo.h"
+
 // #define DEBUG
 struct task_struct* current;
 struct task_struct* task[NR_TASKS];
+
+long sec,nsec,flag;  //nanosleep所需参数
 
 extern void __switch_to(unsigned long long, unsigned long long);
 extern void first_switch_to();
@@ -19,7 +24,7 @@ extern void idle();
 
 void task_init(void){
 	task[0]=current=(struct task_struct*)TASK_VM_START;		//Task0 Base
-	task[0]->state=TASK_RUNNING;
+	task[0]->state=TASK_READY;
 	task[0]->counter=1;
 	task[0]->priority=5;
 	task[0]->blocked=0;
@@ -28,6 +33,13 @@ void task_init(void){
 	task[0]->stack = (uint64)kmalloc(sizeof(STACK_SIZE));
 	task[0]->xstate=-1;
 	task[0]->chan=0;
+
+	/* 新增-wdl */
+	task[0]->utime=0;
+    task[0]->stime=0;
+    task[0]->cutime=0;
+    task[0]->cstime=0;
+
 	initlock(&(task[0]->lk), "proc");
 	task[0]->thread.sp=TASK_VM_START+TASK_SIZE;	//Task0 Base + 4kb
 
@@ -36,7 +48,7 @@ void task_init(void){
 
 	for(int i=1;i<=LAB_TEST_NUM;i++){//init task[i]
 		task[i]=(struct task_struct*)(TASK_VM_START+i*TASK_SIZE);
-		task[i]->state=TASK_RUNNING;
+		task[i]->state=TASK_READY;
 		task[i]->counter=rand();
 		task[i]->priority=5;
 		task[i]->blocked=0;
@@ -45,6 +57,15 @@ void task_init(void){
 
 		task[i]->stack = (uint64)kmalloc(STACK_SIZE);
 		task[i]->allocated_stack = 0;
+
+		/* 新增-wdl */
+		task[i]->xstate=-1;
+		task[i]->chan=0;
+		task[i]->utime=0;
+    	task[i]->stime=0;
+    	task[i]->cutime=0;
+    	task[i]->cstime=0;
+		initlock(&(task[i]->lk), "proc");
 
 		task[i]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
 		task[i]->mm->pagetable_address = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
@@ -70,8 +91,12 @@ void task_init(void){
 	}
 }
 
-void do_timer(void){
+void do_timer(int64 sstatus){
 	timer_tick();
+
+	/* 新增-wdl */
+	time(sstatus);
+
 #ifdef SJF
 	printf("[PID = %d] Context Calculation: counter = %d\n",current->pid, current->counter);
 	if(!current->pid||current->counter<=0||--current->counter<=0){
@@ -99,19 +124,20 @@ void schedule(void){
 #ifdef SJF
 	while(--i){
 		if(!*(--p)) continue;
-		if((*p)->state==TASK_RUNNING&&(*p)->counter>0){
+		if((*p)->state==TASK_READY&&(*p)->counter>0){
 			if(c<0||c>(*p)->counter) c=(*p)->counter,next=i;//if p is the first non-empty task or p's counter is smaller, then choose it.
 		}
 	}
-	for(int i=1;i<=LAB_TEST_NUM;i++) if(task[i]->state==TASK_RUNNING&&task[i]->counter==0) {
+	for(int i=1;i<=LAB_TEST_NUM;i++) if(task[i] && task[i]->state==TASK_READY&&task[i]->counter==0) {
 		task[i]->counter=rand();
 		printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
 	}
+
 #endif
 #ifdef PRIORITY
 	while(--i){
 		if(!*(--p)) continue;
-		if((*p)->state==TASK_RUNNING&&(*p)->counter>0){
+		if((*p)->state==TASK_READY&&(*p)->counter>0){
 			if(c<0||prio>(*p)->priority) c=(*p)->counter,prio=(*p)->priority,next=i;//if p is the first non-empty one or p is prior than the last one, then choose it.
 			else if(prio==(*p)->priority){//else if p'priority equals the last one, compary the counter and choose the smaller one.
 				if(c>(*p)->counter) c=(*p)->counter,next=i;
@@ -163,7 +189,7 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 	uint64 child=alloc_pid();
 	if (child < 0) return -1;
 	task[child]=(struct task_struct*)kmalloc(PAGE_SIZE);
-	task[child]->state=TASK_RUNNING;
+	task[child]->state=TASK_READY;
 	task[child]->counter=rand();
 	task[child]->priority=5;
 	task[child]->blocked=0;
@@ -212,8 +238,7 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 
 /* 返回当前进程的pid*/
 long getpid(void){
-	if(current) return current->pid;
-	else return -1;//For boot
+	return current->pid;
 }
 
 /* 返回当前进程的ppid*/
@@ -223,6 +248,7 @@ long getppid(void){
 
 /* 退出 */
 void exit(long status){
+	acquire(&(current->lk));
 	if(current->pid==0){
 		//task[0]不可以结束
 		return;
@@ -231,14 +257,20 @@ void exit(long status){
 	//如果某个进程的父进程ppid==当前进程的pid，则把他的父进程变为task[0]
 	for(int i=1;i<NR_TASKS;i++)
 	{
+		if(!task[i] || i==current->pid) continue;
+		//acquire(&(task[i]->lk));
 		if(task[i]->ppid==current->pid) task[i]->ppid=0;
+		//release(&(task[i]->lk));
 	}
 
 	//若当前进程的父进程处于睡眠状态，则唤醒
-	if(task[current->ppid]->state==TASK_SLEEPING) task[current->ppid]->state=TASK_RUNNING;
+	//acquire(&(task[current->ppid]->lk));
+	if(task[current->ppid]->state==TASK_SLEEPING) task[current->ppid]->state=TASK_READY;
+	//release(&(task[current->ppid]->lk));
 
 	current->xstate=status;
 	current->state=TASK_ZOMBIE;
+	release(&(current->lk));
 	schedule();
 }
 
@@ -251,9 +283,6 @@ void sleep(void *chan, struct spinlock *lk)
 	}
 	current->chan=chan;
 	current->state=TASK_SLEEPING;
-	#ifdef DEBUG
-	printf("sleep pid:%d\n", current->pid);
-	#endif
 	schedule();
 	current->chan=0;
 	if(lk!=&current->lk)
@@ -271,9 +300,154 @@ void wakeup(void *chan)
 		//acquire(&(task[i]->lk));
 		if(task[i]->state==TASK_SLEEPING && task[i]->chan==chan)
 		{
-			task[i]->state=TASK_RUNNING;
-			printf("wake up pid:%d\n", i);
+			task[i]->state=TASK_READY;
 		}
 		//release(&(task[i]->lk));
+	}
+}
+
+
+/* 等待某一/任意子进程改变状态 */
+long wait(long pid, long* status, long options)
+{
+	int i;
+	if (options == WCONTINUED) return -1;
+	acquire(&(current->lk));
+	if(pid==-1)
+	{
+	repeat1:
+		//task[0]是第一个创建的进程，且不会exit，所以他不可能是其他任意进程的子进程
+		for(i=1;i<NR_TASKS;i++)
+		{
+			if(!task[i] || i==current->pid) continue;
+			acquire(&(task[i]->lk));
+			if(task[i]==0){
+				release(&(task[i]->lk));
+				continue;
+			}
+			if(task[i]->ppid==current->pid && task[i]->state==TASK_ZOMBIE) 
+			{
+				release(&(task[i]->lk));
+				break;
+			}
+			release(&(task[i]->lk));
+		}
+		//没有任何的子进程的状态是zombie
+		if(i>=NR_TASKS) 
+		{
+			if(options==WNOHANG) 
+			{
+				release(&(current->lk));
+				return 0;
+			}
+			else if(options==WUNTRACED)
+			{
+				current->state=TASK_SLEEPING;
+				release(&(current->lk));
+				schedule();
+				acquire(&(current->lk));
+				goto repeat1;
+			}
+		}
+
+		current->cutime += task[i]->utime;
+		current->cstime += task[i]->stime;
+		int pid=task[i]->pid;
+		*status=task[i]->xstate;
+		//测试的时候没有加kfree
+		kfree(task[i]);
+		task[i]=0;
+		release(&(current->lk));
+		return pid;
+	}
+	else
+	{
+	repeat2:
+		acquire(&(task[pid]->lk));
+		if(task[pid]==0) 
+		{
+			release(&(task[pid]->lk));
+			release(&(current->lk));
+			return -1;
+		}
+		if(task[pid]->ppid!=current->pid) 
+		{
+			release(&(current->lk));
+			return -1;
+		}
+		if(task[pid]->state!=TASK_ZOMBIE) 
+		{
+			if(options==WNOHANG) 
+			{
+				release(&(task[pid]->lk));
+				release(&(current->lk));
+				return 0;
+			}
+			else if(options==WUNTRACED)
+			{
+				current->state=TASK_SLEEPING;
+				release(&(task[pid]->lk));
+				release(&(current->lk));
+				schedule();
+				acquire(&(current->lk));
+				goto repeat2;
+			}
+		}
+		else 
+		{
+			current->cutime += task[pid]->utime;
+			current->cstime += task[pid]->stime;
+			*status=task[pid]->xstate;
+			//测试的时候没有加kfree
+			kfree(task[pid]);
+			task[pid]=0;
+			release(&(current->lk));
+			return pid;
+		}
+	}
+	release(&(current->lk));
+	return -1;
+}
+
+/* 让出调度器 */
+void yield()
+{
+	schedule();
+}
+
+/* 线程睡眠 */
+void nanosleep(struct timespec *req, struct timespec *rem)
+{
+	flag=current->pid;
+	sec=task[0]->stime+req->tv_sec;
+	nsec=task[0]->utime+req->tv_nsec;
+	current->state=TASK_SLEEPING;
+	if(rem!=0){
+		rem->tv_sec=0;
+		rem->tv_nsec=0;
+	}
+	schedule();
+}
+
+void time(int64 sstatus)
+{
+	sstatus&=0x100;
+	task[0]->stime++;     //秒
+	task[0]->utime+=10;   //纳秒
+	if(task[0]->utime==1000000000) 
+	{
+		task[0]->stime++;
+		task[0]->utime=0;
+	}
+	if(sstatus) current->stime++;
+	else current->utime++;
+
+	if(flag!=0)
+	{
+		if(task[0]->stime > sec || sec==task[0]->stime && task[0]->utime >=nsec)
+		{
+			task[flag]->state=TASK_READY;
+			flag=0;
+		}
 	}
 }

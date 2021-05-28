@@ -1,6 +1,6 @@
 #pragma once
 #include "spinlock.h"
-
+#include "time.h"
 #include "types.h"
 #include "sysfile.h"
 
@@ -16,12 +16,9 @@
 #define LAST_TASK   (task[NR_TASKS-1])
 
 /* 定义task的状态，Lab3中task只需要一种状态。*/
-#define TASK_RUNNING             0
-#define TASK_INTERRUPTIBLE       1
-#define TASK_UNINTERRUPTIBLE     2
-#define TASK_ZOMBIE              3
-#define TASK_STOPPED             4
-#define TASK_SLEEPING            5
+#define TASK_READY               0
+#define TASK_ZOMBIE              1
+#define TASK_SLEEPING            2
 
 #define PREEMPT_ENABLE  0
 #define PREEMPT_DISABLE 1
@@ -98,6 +95,11 @@ struct task_struct {
     pid_t tid;
     pid_t ptid;
 
+    long utime;
+    long stime;
+    long cutime;
+    long cstime;
+
     size_t sepc;
     size_t sscratch;
     struct mm_struct *mm;
@@ -115,7 +117,7 @@ struct task_struct {
 void task_init(void); 
 
 /* 在时钟中断处理中被调用 */
-void do_timer(void);
+void do_timer(int64);
 
 /* 调度程序 */
 void schedule(void);
@@ -142,9 +144,18 @@ long getpid(void);
 long getppid(void);
 
 /* 等待某一/任意子进程改变状态 */
-//long wait(long pid, long* status, long options);
+long wait(long pid, long* status, long options);
 
 /* 退出 */
 void exit(long status);
+
+/* 让出调度器 */
+void yield();
+
+/* 线程睡眠 */
+void nanosleep(struct timespec *req, struct timespec *rem);
+
+/* 时间 */
+void time(int64);
 
 #endif

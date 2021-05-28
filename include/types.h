@@ -20,6 +20,8 @@ typedef unsigned long   uintptr_t;
 typedef unsigned long   size_t;
 typedef unsigned long   __off_t;
 
+typedef unsigned long  time_t;
+
 typedef int pid_t;
 typedef long off_t;
 

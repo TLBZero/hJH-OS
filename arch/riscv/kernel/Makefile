@@ -17,6 +17,8 @@ OBJS = \
 	fat32.o \
 	sysfile.o \
 	pipe.o \
+	time.o \
+	systemInfo.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
@@ -111,3 +113,9 @@ sysfile.o:
 
 vmlinux: $(LDSCRIPT) $(LKOBJS)
 	$(LD) -T $(LDSCRIPT) $(LKOBJS) -o ../../../vmlinux
+
+systemInfo.o:
+	$(GCC) $(CFLAG) -c systemInfo.c -o ../../../build/systemInfo.o
+
+time.o:
+	$(GCC) $(CFLAG) -c time.c -o ../../../build/time.o
