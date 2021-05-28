@@ -8,6 +8,7 @@
 #include "vm.h"
 #include "string.h"
 #include "timer.h"
+#include "pipe.h"
 // #define DEBUG
 struct task_struct* current;
 struct task_struct* task[NR_TASKS];
@@ -128,7 +129,8 @@ void schedule(void){
 		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 #endif
-
+	
+	//spipe_test();
 	switch_to(task[next]);
 }
 

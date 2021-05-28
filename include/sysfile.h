@@ -1,6 +1,7 @@
 #pragma once
 #include "types.h"
 #include "fat32.h"
+#include "pipe.h"
 
 #define SYSOFILENUM     100
 #define PROCOFILENUM    16
@@ -33,6 +34,12 @@
 #define C_REG       0x01
 #define C_DIR       0x02
 
+#define READABLE        0x01
+#define WRITABLE        0x02
+#define NO_READ_WRITE   0x03
+#define READ_AND_WRITE  0x04
+
+
 /* File Structure */
 struct file {
     enum { REG, DIR, LNK, BLK, CHR, PIPE, SOCK} f_type;
@@ -40,9 +47,12 @@ struct file {
     struct dirent* f_entry;
     int f_count;    // Reference Count
     uint32 f_pos;   // File Pointer
+
+    struct pipe *pipe;
 };
 
-
+extern struct spinlock SysFLock;
+extern struct file SysFTable[SYSOFILENUM];
 
 void sysfile_init();
 void sysfile_test();

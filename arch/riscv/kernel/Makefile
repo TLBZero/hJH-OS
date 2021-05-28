@@ -16,6 +16,7 @@ OBJS = \
 	plic.o \
 	fat32.o \
 	sysfile.o \
+	pipe.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
@@ -101,6 +102,9 @@ timer.o:
 
 plic.o:
 	$(GCC) $(CFLAG) -c plic.c -o $(BUILD)/plic.o
+
+pipe.o:
+	$(GCC) $(CFLAG) -c pipe.c -o $(BUILD)/pipe.o
 
 sysfile.o:
 	$(GCC) $(CFLAG) -c sysfile.c -o $(BUILD)/sysfile.o
