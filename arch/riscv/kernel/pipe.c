@@ -52,9 +52,9 @@ int pipealloc(int *fd0, int *fd1)
 }
 
 
-int pipeclose(int fd)
+int pipeclose(struct file *f)
 {
-    struct file *f=current->FTable[fd];
+    //struct file *f=current->FTable[fd];
     struct pipe *pi=f->pipe;
     acquire(&pi->lock);
     if(f->f_perm==WRITABLE)
@@ -81,10 +81,10 @@ int pipeclose(int fd)
 }
 
 
-int pipewrite(int fd, char *str, int n)
+int pipewrite(struct file *f, char *str, int n)
 {
 	int i;
-    struct file *f=current->FTable[fd];
+    //struct file *f=current->FTable[fd];
     struct pipe *pi=f->pipe;
     
 
@@ -121,9 +121,9 @@ int pipewrite(int fd, char *str, int n)
 }
 
 
-int piperead(int fd, char *str, int n)
+int piperead(struct file *f, char *str, int n)
 {
-    struct file *f=current->FTable[fd];
+    //struct file *f=current->FTable[fd];
     struct pipe *pi=f->pipe;
     int i;
     

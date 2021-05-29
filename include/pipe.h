@@ -18,9 +18,9 @@ struct pipe{
 };
 
 int pipealloc(int *fd0, int *fd1);
-int pipeclose(int fd);
-int pipewrite(int fd, char *str, int n);
-int piperead(int fd, char *str, int n);
+int pipeclose(struct file *f);
+int pipewrite(struct file *f, char *str, int n);
+int piperead(struct file *f, char *str, int n);
 //void pipe_test();
 
 #endif
