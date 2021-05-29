@@ -17,7 +17,8 @@ static void dumpInfo(){
 	printf("[csrInfo]\nsstatus:%p\nsepc:%p\nscause:%p\nsie:%p\nsip:%p\n", sstatus, sepc, scause, sie, sip);
 	printf("[threadInfo]\nra:%p\nsp:%p\n", current->thread.sp, current->thread.ra);
 }
-void strap_handler(int64 scause, int64 sepc, uintptr_t *regs){
+
+void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 	memcpy(current->stack, regs, STACK_SIZE);
 	dumpInfo();
 	if(scause>=0){//exception
@@ -51,12 +52,15 @@ void strap_handler(int64 scause, int64 sepc, uintptr_t *regs){
 	else{//interrupt
 		scause&=0x3f;
 		switch(scause){
-			case S_TIME:do_timer();break;
+			case S_TIME:do_timer(sstatus);break;
 			case 9:{
 					int irq = plic_claim();
 					if (UART_IRQ == irq) {
 						// keyboard input, disabled
-						printf("keyboard interrupt, not done yet!\n");
+						int c = console_getchar();
+						if (-1 != c) {
+							consoleintr(c);
+						}
 					}
 					else if (DISK_IRQ == irq) {
 						disk_intr();

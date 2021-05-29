@@ -31,6 +31,9 @@ typedef uint32  uid_t;
 typedef uint32  gid_t;
 typedef int32   blksize_t;
 typedef int64   blkcnt_t;
+typedef unsigned long  time_t;
+
+typedef uint32 mode_t;
 
 #define NULL ((void*)0)
 

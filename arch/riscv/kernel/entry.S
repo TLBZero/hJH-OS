@@ -11,6 +11,7 @@ trap_s:
 		csrr a0, scause
         csrr a1, sepc
         mv a2, sp
+		csrr a3, sstatus
 		call strap_handler
 
         load_all

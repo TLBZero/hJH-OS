@@ -8,6 +8,7 @@
 #include "sched.h"
 #include "fat32.h"
 #include "sysfile.h"
+#include "console.h"
 volatile static int started = 0;
 extern void idle();
 static inline void inithartid(unsigned long hartid) {
@@ -19,6 +20,7 @@ void start_kernel(unsigned long hartid)
 	inithartid(hartid);
 	if(hartid == 0){
 		env_init();
+		console_init();
 		printf_init();
 		print_logo();
 		paging_init();
@@ -29,7 +31,7 @@ void start_kernel(unsigned long hartid)
 		binit();
 		fat_init();
 		sysfile_init();
-		// sysfile_test();
+		sysfile_test();
 		while(1);
 		timer_init();
 		__sync_synchronize();

@@ -16,6 +16,10 @@ OBJS = \
 	plic.o \
 	fat32.o \
 	sysfile.o \
+	pipe.o \
+	time.o \
+	systemInfo.o \
+	console.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
@@ -102,8 +106,22 @@ timer.o:
 plic.o:
 	$(GCC) $(CFLAG) -c plic.c -o $(BUILD)/plic.o
 
+pipe.o:
+	$(GCC) $(CFLAG) -c pipe.c -o $(BUILD)/pipe.o
+
 sysfile.o:
 	$(GCC) $(CFLAG) -c sysfile.c -o $(BUILD)/sysfile.o
 
+systemInfo.o:
+	$(GCC) $(CFLAG) -c systemInfo.c -o $(BUILD)/systemInfo.o
+
+time.o:
+	$(GCC) $(CFLAG) -c time.c -o $(BUILD)/time.o
+
+console.o:
+	$(GCC) $(CFLAG) -c console.c -o $(BUILD)/console.o
+	
+	
+	
 vmlinux: $(LDSCRIPT) $(LKOBJS)
 	$(LD) -T $(LDSCRIPT) $(LKOBJS) -o ../../../vmlinux

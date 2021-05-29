@@ -3,7 +3,7 @@
 #include "put.h"
 #include "string.h"
 #include "sched.h"
-#define DEBUG
+// #define DEBUG
 union dentry {
     short_name_entry_t  sne;
     long_name_entry_t   lne;

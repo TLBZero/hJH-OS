@@ -1,9 +1,11 @@
 #pragma once
 #include "types.h"
 #include "fat32.h"
+#include "pipe.h"
 
 #define SYSOFILENUM     100
 #define PROCOFILENUM    16
+#define CONSOLE 1
 
 /* Flags */
 #define O_RDONLY        00000000
@@ -41,6 +43,11 @@
 #define DT_SOCK		12
 #define DT_WHT		14
 
+/* File Permission Control */
+#define READABLE        0x01
+#define WRITABLE        0x02
+#define READ_AND_WRITE  0x03
+
 /* File Structure */
 struct file {
     uint8 f_type;   /* File type */
@@ -48,9 +55,12 @@ struct file {
     struct dirent* f_entry;
     int f_count;    /* Reference Count */
     uint32 f_pos;   /* File Pointer */
+    uint8 major;    /* Device Distinguisher */
+
+    struct pipe *pipe;
 };
 
-struct kdirent {
+struct linux_dirent64 {
     int64           d_ino;    /* 64-bit inode number */
     int64           d_off;    /* 64-bit offset to next structure */
     unsigned short  d_reclen; /* Size of this dirent */
@@ -80,6 +90,15 @@ struct kstat {
 	long        st_ctime_nsec;
 	unsigned    __unused[2];
 };
+
+/* Map major device number to device functions. */
+struct devsw {
+    int (*read)(int, uint64, int);
+    int (*write)(int, uint64, int);
+};
+
+extern struct spinlock SysFLock;
+extern struct file SysFTable[SYSOFILENUM];
 
 void sysfile_init();
 void sysfile_test();

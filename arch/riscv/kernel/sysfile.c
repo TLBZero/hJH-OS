@@ -4,17 +4,45 @@
 #include "put.h"
 #include "string.h"
 #include "spinlock.h"
-#define DEBUG
+#include "system.h"
+// #define DEBUG
+
+struct devsw devsw[NDEV];
 struct file SysFTable[SYSOFILENUM];
 struct spinlock SysFLock;
 
 void sysfile_init(){
     initlock(&SysFLock, "sysfile");
-    for(struct file *file=SysFTable;file<SysFTable+SYSOFILENUM;file++)
+    for(struct file *file=SysFTable;file<SysFTable+SYSOFILENUM;file++){
         memset(file, 0, sizeof(struct file));
+    }
+    // STDIN
+    SysFTable[0].f_type = DT_CHR;
+    SysFTable[0].f_perm = READABLE;
+    SysFTable[0].f_count = 1;
+    SysFTable[0].major = CONSOLE;
+    // STDOUT
+    SysFTable[1].f_type = DT_CHR;
+    SysFTable[1].f_perm = WRITABLE;
+    SysFTable[1].f_count = 1;
+    SysFTable[1].major = CONSOLE;
+    // STDERR
+    SysFTable[2].f_type = DT_CHR;
+    SysFTable[2].f_perm = WRITABLE;
+    SysFTable[2].f_count = 1;
+    SysFTable[2].major = CONSOLE;
     #ifdef DEBUG
     printf("[sysfile]file init done!\n");
     #endif
+}
+
+void procfile_init(struct task_struct* task){
+    task->cwd = ename("/");
+	memset(task->FTable, 0, sizeof(struct file*)*PROCOFILENUM);
+    for(int i=0;i<3;i++){
+        task->FTable[i] = &SysFTable[i];
+        SysFTable[i].f_count++;
+    }
 }
 
 /**
@@ -41,13 +69,17 @@ void frelease(struct file* file){
     if(!file) return;
     
     acquire(&SysFLock);
-    if(file->f_count == 0) 
+    if(file->f_count < 1) 
         panic("frelease error, tring to free freed file!");
-    if(--file->f_count == 0){
-        eput(file->f_entry);
-        file->f_entry = NULL;
+    if(--file->f_count > 0){
+        release(&SysFLock);
+        return;
     }
-    release(&SysFLock);
+    file->f_count = 0;
+    if(file->f_type == DT_FIFO)
+        pipeclose(-1);
+    else if(file->f_type & (DT_REG|DT_DIR))
+        eput(file->f_entry);
 }
 
 /**
@@ -104,7 +136,7 @@ void remove_fd(int fd){
 int fread(struct file* file, void* dst, int num){
     if(!file) panic("fread error, read null file!");
 
-    if(file->f_perm&O_WRONLY)// Not readable
+    if(!(file->f_perm&READABLE))// Not readable
         return -1;
     int r;
     switch(file->f_type){
@@ -113,6 +145,16 @@ int fread(struct file* file, void* dst, int num){
             r = eread(file->f_entry, dst, file->f_pos, num);
             if(r>0) file->f_pos += r; // Move file pointer
             releasesleep(&file->f_entry->lock);
+            break;
+        }
+        case DT_FIFO:{
+            //r = piperead()
+            break;
+        }
+        case DT_CHR:{
+            if(file->major < 0 || file->major >= NDEV ||!devsw[file->major].read)
+                return -1;
+            r = devsw[file->major].read(0, dst, num);
             break;
         }
         default:panic("fread error, unknow file type!");break;
@@ -131,7 +173,7 @@ int fread(struct file* file, void* dst, int num){
 int fwrite(struct file* file, void* src, int num){
     if(!file) panic("fwrite error, write null file!");
 
-    if(!(file->f_perm&(O_WRONLY|O_RDWR))) // Not writeable
+    if(!(file->f_perm&WRITABLE)) // Not writeable
         return -1;
 
     int w;
@@ -141,7 +183,19 @@ int fwrite(struct file* file, void* src, int num){
             w = ewrite(file->f_entry, src, file->f_pos, num);
             if(w>0) file->f_pos+=w;
             releasesleep(&file->f_entry->lock);
+            break;
         }
+        case DT_FIFO:{
+            //w = pipewrite()
+            break;
+        }
+        case DT_CHR:{
+            if(file->major < 0 || file->major >= NDEV ||!devsw[file->major].write)
+                return -1;
+            w = devsw[file->major].write(0, src, num);
+            break;
+        }
+        default:panic("fwrite error, unknow file type!");break;
     }
     return w;
 }
@@ -207,7 +261,7 @@ void fseek(struct file* file, uint pos){
  * @return 读取成功则返回1，读到结尾返回0，否则失败，返回-1
  */
 int dirnext(struct file *file, struct dirent* ep){
-    if(file->f_perm&O_WRONLY || !(file->f_entry->attribute&ATTR_DIRECTORY))
+    if(!(file->f_perm&READABLE)|| !(file->f_entry->attribute&ATTR_DIRECTORY))
         return -1;
 
     struct kstat st;
@@ -280,7 +334,7 @@ int sys_dup3(int old, int new){
     return new;
 }
 
-int sys_chdir(const char *pathname){
+int cd(const char *pathname){
     int len = strlen(pathname);
     if(len<=0||len>FAT32_MAX_PATH)
         return -1;// path error
@@ -303,6 +357,11 @@ int sys_chdir(const char *pathname){
     eput(current->cwd);
     current->cwd = ep;  //Change dir! Just so easy!
     return 0;
+}
+
+
+int sys_chdir(const char *pathname){
+    return cd(pathname);
 }
 
 /**
@@ -349,7 +408,9 @@ int open(char *pathname, int flags, mode_t mode){
     file = &SysFTable[sfd];
     file->f_count = 1;
     file->f_entry = ep;
-    file->f_perm = flags;
+    file->f_perm = 0;
+    if(flags&O_WRONLY) file->f_perm = WRITABLE;
+    file->f_perm |= READABLE;
     file->f_pos = (flags&O_APPEND) ? ep->file_size:0;
     file->f_type = (ep->attribute&ATTR_DIRECTORY) ? DT_DIR:DT_REG;
     release(&SysFLock);
@@ -487,11 +548,11 @@ int sys_getdents64(int fd, char *buf, int len){
     int ret = dirnext(file, &ep);
     if(ret<=0) return ret;
 
-    struct kdirent* ldr = (struct kdirent*)buf;
+    struct linux_dirent64* ldr = (struct linux_dirent64*)buf;
     ldr->d_ino = ep.first_clus;
     ldr->d_off = ep.off;
     ldr->d_type = file->f_type;
-    ldr->d_reclen = sizeof(struct kdirent) + strlen(ep.filename);
+    ldr->d_reclen = sizeof(struct linux_dirent64) + strlen(ep.filename);
     if(len<ldr->d_reclen)
         return -1;// Buffer too small;
     strcpy(ldr->d_name, ep.filename);
@@ -506,7 +567,7 @@ int sys_getdents64(int fd, char *buf, int len){
  * @param st 接受保存文件状态的指针
  * @return 成功返回0，失败返回-1
  */
-int sys_fstat(int fd, struct kstat* st){
+int fstat(int fd, struct kstat* st){
     struct file* file = current->FTable[fd];
     if(!file) return -1; // Null file!
 
@@ -524,9 +585,13 @@ int sys_fstat(int fd, struct kstat* st){
     st->st_atime_nsec = 0;
     st->st_mtime_sec = 0;
     st->st_mtime_nsec = 0;
-    st->st_ctime_nsec = 0;
+    st->st_ctime_sec = 0;
     st->st_ctime_nsec = 0;
     return 0;
+}
+
+int sys_fstat(int fd, struct kstat *st){
+    return fstat(fd, st);
 }
 
 /**
@@ -571,43 +636,11 @@ int sys_unlinkat(int dirfd, const char* pathname, int flag){
     return res;
 }
 
-void ls(){
-    struct dirent* dp = current->cwd;
-    struct dirent ep;
-    uint size=0;
-    printf("======================ls======================\n");
-    while(dirnext(dp, &ep)>0){
-        size += ep.file_size;
-        printf("",ep.attribute&ATTR_READ_ONLY?"R":"RW", ep.file_size, ep.filename);
-    }
-    printf("total: %d\n", size);
-}
-
 void sysfile_test(){
-    // char cwd[FAT32_MAX_PATH];
-    // char write[512]="fwrite test string!";
-    // char read[512]={0};
-    // sys_getcwd(cwd, FAT32_MAX_PATH);
-    // printf("%s\n", cwd);
-
-    // sys_mkdir("/testdir", 0);
-    // sys_chdir("/testdir");
-    // sys_getcwd(cwd, FAT32_MAX_PATH);
-    // printf("%s\n", cwd);
-
-    // int fd = sys_open("testfile.txt", O_CREAT|O_RDWR, 0);
-    // printf("fd:%d\n", fd);
-    // struct file* file = current->FTable[fd];
-    // printf("file ocnt:%d\n",file->f_count);
-    
-    // fwrite(file, write, 30);
-    // file->f_pos = 10;
-    // fwrite(file, write, 30);
-    // file->f_pos = 0;
-    // fread(file, read, 30);
-    // printf("read:%s\n", read);
-
-    // sys_close(fd);
+    printf("[sysfile_test]get in!\n");
+    char buf[512] = {0};
+    int r = sys_read(0, buf, 20);
+    printf("%d %s", r, buf);
 
     printf("[sysfile_test]test done!\n");
     while(1);
