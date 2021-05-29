@@ -30,6 +30,7 @@ void start_kernel(unsigned long hartid)
 		fat_init();
 		sysfile_init();
 		// sysfile_test();
+		while(1);
 		timer_init();
 		__sync_synchronize();
 		started = 1;

@@ -15,11 +15,11 @@ static void dumpInfo(){
 	r_csr(sie, sie);
 	r_csr(sip, sip);
 	printf("[csrInfo]\nsstatus:%p\nsepc:%p\nscause:%p\nsie:%p\nsip:%p\n", sstatus, sepc, scause, sie, sip);
-	printf("[threadInfo]ra:%p\nsp:%p\n", current->thread.sp, current->thread.ra);
+	printf("[threadInfo]\nra:%p\nsp:%p\n", current->thread.sp, current->thread.ra);
 }
 void strap_handler(int64 scause, int64 sepc, uintptr_t *regs){
 	memcpy(current->stack, regs, STACK_SIZE);
-	// dumpInfo();
+	dumpInfo();
 	if(scause>=0){//exception
 		#ifdef DEBUG
 		printf("[strap_handler]Get into EXP\n");

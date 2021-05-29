@@ -4,8 +4,7 @@
 #include "put.h"
 #include "string.h"
 #include "spinlock.h"
-// #define DEBUG
-extern struct dirent root;
+#define DEBUG
 struct file SysFTable[SYSOFILENUM];
 struct spinlock SysFLock;
 
@@ -60,6 +59,7 @@ int locate_fd(){
     acquire(&current->lk);
     for(;res<PROCOFILENUM;res++)
         if(current->FTable[res]==NULL){
+            current->FTable[res] = 1;
             release(&current->lk);
             return res;
         }
@@ -108,7 +108,7 @@ int fread(struct file* file, void* dst, int num){
         return -1;
     int r;
     switch(file->f_type){
-        case REG:{
+        case DT_REG:{
             acquiresleep(&file->f_entry->lock);
             r = eread(file->f_entry, dst, file->f_pos, num);
             if(r>0) file->f_pos += r; // Move file pointer
@@ -136,7 +136,7 @@ int fwrite(struct file* file, void* src, int num){
 
     int w;
     switch (file->f_type){
-        case REG:{
+        case DT_REG:{
             acquiresleep(&file->f_entry->lock);
             w = ewrite(file->f_entry, src, file->f_pos, num);
             if(w>0) file->f_pos+=w;
@@ -163,9 +163,9 @@ struct dirent* fcreate(char *pathname, uint type, uint flags){
     if((dp=enameparent(pathname, name)) == NULL)
         return NULL;
 
-    if (type == C_DIR)
+    if (type == DT_DIR)
         attr = ATTR_DIRECTORY;
-    else if (flags & O_RDONLY) // But O_RDONLY is always 0
+    else if (!(flags&(O_WRONLY|O_RDWR))) // Just readable
         attr = ATTR_READ_ONLY;
 
     acquiresleep(&dp->lock);
@@ -175,8 +175,8 @@ struct dirent* fcreate(char *pathname, uint type, uint flags){
         return NULL;
     }
 
-    if ((type == C_DIR && !(ep->attribute & ATTR_DIRECTORY)) ||
-        (type == C_REG && (ep->attribute & ATTR_DIRECTORY)))
+    if ((type == DT_DIR && !(ep->attribute & ATTR_DIRECTORY)) ||
+        (type == DT_REG && (ep->attribute & ATTR_DIRECTORY)))
             panic("fcreate error!");// Some strange error
 
     releasesleep(&dp->lock);
@@ -194,8 +194,44 @@ struct file* fdup(struct file* file){
 }
 
 void fseek(struct file* file, uint pos){
+    acquire(&SysFLock);
     file->f_pos = pos;
+    release(&SysFLock);
 }
+
+/**
+ * @brief 读取目录文件中的下一项
+ * 
+ * @param file 指定的目录文件
+ * @param ep 读取到的entry将被在ep里
+ * @return 读取成功则返回1，读到结尾返回0，否则失败，返回-1
+ */
+int dirnext(struct file *file, struct dirent* ep){
+    if(file->f_perm&O_WRONLY || !(file->f_entry->attribute&ATTR_DIRECTORY))
+        return -1;
+
+    struct kstat st;
+    int count = 0;
+    int ret;
+    acquiresleep(&file->f_entry->lock);
+    while ((ret = enext(file->f_entry, ep, file->f_pos, &count)) == 0) // Empty entry
+        file->f_pos += count * 32;
+    releasesleep(&file->f_entry->lock);
+    if (ret == -1)// Dir end
+        return 0;
+
+    file->f_pos += count * 32;
+    return 1;
+}
+
+int isdirempty(struct dirent *dp)
+{
+  struct dirent ep;
+  int count;
+  int ret = enext(dp, &ep, 64, &count);   // skip the "." and ".."
+  return ret == -1;
+}
+
 
 /**
  * @brief 获取当前的工作目录
@@ -204,15 +240,15 @@ void fseek(struct file* file, uint pos){
  * @param size buffer的大小
  * @return 指向当前工作目录的字符串的指针；若失败，则返回NULL。
  */
-char *sys_getcwd(char *buf, uint size)
-{
+char *sys_getcwd(char *buf, uint size){
     // Note, buf shall be allocated from it's heap rather than kmalloc
     if (!buf){
         if ((buf = (char *)kmalloc(size)) == NULL)
             return NULL;
     }
     memset(buf, 0 ,size);
-    if(epath(current->cwd, buf, size)==-1) return NULL;
+    if(epath(current->cwd, buf, size)==-1)
+        return NULL;
     return buf;
 }
 
@@ -248,7 +284,7 @@ int sys_chdir(const char *pathname){
     int len = strlen(pathname);
     if(len<=0||len>FAT32_MAX_PATH)
         return -1;// path error
-    
+
     char path[FAT32_MAX_PATH];
     strcpy(path, pathname);
 
@@ -277,7 +313,7 @@ int sys_chdir(const char *pathname){
  * @param mode Unused
  * @return 打开或创建文件的文件描述符，如失败则返回-1
  */
-int sys_open(char *pathname, int flags, mode_t mode){
+int open(char *pathname, int flags, mode_t mode){
     int len = strlen(pathname);
     if(len<=0||len>FAT32_MAX_PATH)
         return -1;
@@ -290,7 +326,7 @@ int sys_open(char *pathname, int flags, mode_t mode){
     int sfd, fd;
 
     if(flags&O_CREAT){   // Create file
-        ep = fcreate(path, C_REG, flags);
+        ep = fcreate(path, DT_REG, flags);
         if(!ep) return -1;// Create fails
     }else{
         ep = ename(path);
@@ -299,7 +335,7 @@ int sys_open(char *pathname, int flags, mode_t mode){
 
     acquiresleep(&ep->lock);
     if((sfd=falloc())==-1 || (fd=locate_fd())==-1){// No fd can use
-        if(sfd!=-1) frelease(sfd);
+        if(sfd!=-1) frelease(&SysFTable[sfd]);
         releasesleep(&ep->lock);
         eput(ep);
         return -1;
@@ -315,7 +351,7 @@ int sys_open(char *pathname, int flags, mode_t mode){
     file->f_entry = ep;
     file->f_perm = flags;
     file->f_pos = (flags&O_APPEND) ? ep->file_size:0;
-    file->f_type = (ep->attribute&ATTR_DIRECTORY) ? DIR : REG;
+    file->f_type = (ep->attribute&ATTR_DIRECTORY) ? DT_DIR:DT_REG;
     release(&SysFLock);
     install_fd(fd, file);
 
@@ -339,9 +375,9 @@ int sys_openat(int dirfd, const char *pathname, int flags, mode_t mode){
     if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
         struct dirent* ep = current->cwd;
         current->cwd = current->FTable[dirfd]->f_entry; // Quite dirty way I guess
-        res = sys_open(pathname, flags ,mode);
+        res = open(pathname, flags ,mode);
         current->cwd = ep;
-    }else res = sys_open(pathname, flags, mode);// Case 1 and 2
+    }else res = open(pathname, flags, mode);// Case 1 and 2
 
     return res;
 }
@@ -394,7 +430,7 @@ int sys_write(int fd, char* buf, int count){
  * @param mode Unused
  * @return 创建成功则返回0，否则返回-1
  */
-int sys_mkdir(char *pathname, mode_t mode){
+int mkdir(char *pathname, mode_t mode){
     int len = strlen(pathname);
     if(len<=0||len>FAT32_MAX_PATH)
         return -1;
@@ -402,7 +438,7 @@ int sys_mkdir(char *pathname, mode_t mode){
     char path[FAT32_MAX_PATH];// For possible name changes
     strcpy(path, pathname);
 
-    struct dirent* ep = fcreate(path, C_DIR, 0);
+    struct dirent* ep = fcreate(path, DT_DIR, 0);
     if(!ep) return -1;
 
     eput(ep);
@@ -425,38 +461,153 @@ int sys_mkdirat(int dirfd, const char *pathname, mode_t mode){
     if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
         struct dirent* ep = current->cwd;
         current->cwd = current->FTable[dirfd]->f_entry;
-        res = sys_mkdir(pathname ,mode);
+        res = mkdir(pathname ,mode);
         current->cwd = ep;
-    }else res = sys_mkdir(pathname, mode);// Case 1 and 2
+    }else res = mkdir(pathname, mode);// Case 1 and 2
 
     return res;
 }
 
-void sysfile_test(){
-    char cwd[FAT32_MAX_PATH];
-    char write[512]="fwrite test string!";
-    char read[512]={0};
-    sys_getcwd(cwd, FAT32_MAX_PATH);
-    printf("%s\n", cwd);
-
-    sys_mkdir("/testdir", 0);
-    sys_chdir("/testdir");
-    sys_getcwd(cwd, FAT32_MAX_PATH);
-    printf("%s\n", cwd);
-
-    int fd = sys_open("testfile.txt", O_CREAT|O_RDWR, 0);
-    printf("fd:%d\n", fd);
+/**
+ * @brief 获取目录的条目
+ * 
+ * @param fd 所要读取目录的文件描述符
+ * @param buf 用于存放目录信息的缓冲区
+ * @param len buf大小
+ * @return 成功执行，返回读取的字节数。当到目录结尾，则返回0。失败，则返回-1
+ */
+int sys_getdents64(int fd, char *buf, int len){
     struct file* file = current->FTable[fd];
-    printf("file ocnt:%d\n",file->f_count);
-    
-    fwrite(file, write, 30);
-    file->f_pos = 10;
-    fwrite(file, write, 30);
-    file->f_pos = 0;
-    fread(file, read, 30);
-    printf("read:%s\n", read);
+    if(!file || !buf )// Null file!
+        return -1;
 
-    sys_close(fd);
+    memset(buf, 0, len);
+
+    struct dirent ep;
+    int ret = dirnext(file, &ep);
+    if(ret<=0) return ret;
+
+    struct kdirent* ldr = (struct kdirent*)buf;
+    ldr->d_ino = ep.first_clus;
+    ldr->d_off = ep.off;
+    ldr->d_type = file->f_type;
+    ldr->d_reclen = sizeof(struct kdirent) + strlen(ep.filename);
+    if(len<ldr->d_reclen)
+        return -1;// Buffer too small;
+    strcpy(ldr->d_name, ep.filename);
+
+    return ldr->d_reclen;
+}
+
+/**
+ * @brief 获取文件状态
+ * 
+ * @param fd 文件描述符
+ * @param st 接受保存文件状态的指针
+ * @return 成功返回0，失败返回-1
+ */
+int sys_fstat(int fd, struct kstat* st){
+    struct file* file = current->FTable[fd];
+    if(!file) return -1; // Null file!
+
+    st->st_dev = file->f_entry->dev;
+    st->st_ino = file->f_entry->first_clus;
+    st->st_mode = 0;
+    st->st_nlink = 1;
+    st->st_uid = 0;
+    st->st_gid = 0;
+    st->st_rdev = 0;
+    st->st_size = file->f_entry->file_size;
+    st->st_blksize = 512;
+    st->st_blocks = file->f_entry->clus_cnt;
+    st->st_atime_sec = 0;
+    st->st_atime_nsec = 0;
+    st->st_mtime_sec = 0;
+    st->st_mtime_nsec = 0;
+    st->st_ctime_nsec = 0;
+    st->st_ctime_nsec = 0;
+    return 0;
+}
+
+/**
+ * @brief 删除文件
+ * 
+ * @param pathname 指定的文件路径
+ * @return 成功则返回0，否则返回-1
+ */
+int rm(const char* pathname, int flag){
+    if(strlen(pathname)<=0)
+        return -1;
+
+    char path[FAT32_MAX_PATH];
+    strcpy(path, pathname);
+
+    struct dirent *ep = ename(path);
+    acquiresleep(&ep->lock);
+    if(!ep || ep->attribute&ATTR_SYSTEM)
+        return -1;
+    if(ep->attribute&ATTR_DIRECTORY && flag!=AT_REMOVEDIR
+        || !(ep->attribute&ATTR_DIRECTORY)&&flag==AT_REMOVEDIR)
+        return -1;
+    
+    etrunc(ep);
+    acquiresleep(&ep->parent->lock);
+    eremove(ep);
+    releasesleep(&ep->parent->lock);
+    releasesleep(&ep->lock);
+    eput(ep);
+    return 0;
+}
+
+int sys_unlinkat(int dirfd, const char* pathname, int flag){
+    int res;
+    if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
+        struct dirent* ep = current->cwd;
+        current->cwd = current->FTable[dirfd]->f_entry;
+        res = rm(pathname, flag);
+        current->cwd = ep;
+    }else res = rm(pathname, flag);// Case 1 and 2
+
+    return res;
+}
+
+void ls(){
+    struct dirent* dp = current->cwd;
+    struct dirent ep;
+    uint size=0;
+    printf("======================ls======================\n");
+    while(dirnext(dp, &ep)>0){
+        size += ep.file_size;
+        printf("",ep.attribute&ATTR_READ_ONLY?"R":"RW", ep.file_size, ep.filename);
+    }
+    printf("total: %d\n", size);
+}
+
+void sysfile_test(){
+    // char cwd[FAT32_MAX_PATH];
+    // char write[512]="fwrite test string!";
+    // char read[512]={0};
+    // sys_getcwd(cwd, FAT32_MAX_PATH);
+    // printf("%s\n", cwd);
+
+    // sys_mkdir("/testdir", 0);
+    // sys_chdir("/testdir");
+    // sys_getcwd(cwd, FAT32_MAX_PATH);
+    // printf("%s\n", cwd);
+
+    // int fd = sys_open("testfile.txt", O_CREAT|O_RDWR, 0);
+    // printf("fd:%d\n", fd);
+    // struct file* file = current->FTable[fd];
+    // printf("file ocnt:%d\n",file->f_count);
+    
+    // fwrite(file, write, 30);
+    // file->f_pos = 10;
+    // fwrite(file, write, 30);
+    // file->f_pos = 0;
+    // fread(file, read, 30);
+    // printf("read:%s\n", read);
+
+    // sys_close(fd);
 
     printf("[sysfile_test]test done!\n");
     while(1);
