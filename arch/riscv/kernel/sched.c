@@ -68,20 +68,30 @@ void task_init(void){
 		initlock(&(task[i]->lk), "proc");
 
 		task[i]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-		task[i]->mm->pagetable_address = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-		memcpy(task[i]->mm->pagetable_address, kernel_pagetable, PAGE_SIZE);
+		// task[i]->mm->pagetable_address = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+		// memcpy(task[i]->mm->pagetable_address, kernel_pagetable, PAGE_SIZE);
+		task[i]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+		task[i]->mm->kpagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+		printf("stack:%p, pgtbl:%p, kpgtbl:%p, ker:%p\n", task[i]->stack,task[i]->mm->pagetable, task[i]->mm->kpagetable, kernel_pagetable);
+		memset(task[i]->mm->pagetable, 0, PAGE_SIZE);
+		memset(task[i]->mm->kpagetable, 0, PAGE_SIZE);
 
-		// do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
-		// do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
+		memcpy(task[i]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
+		memcpy(task[i]->mm->kpagetable, kernel_pagetable, PAGE_SIZE);
 
-		// create_mapping(task[i]->mm->pagetable_address, 0, dead_loop, TASK_SIZE, PTE_R|PTE_W|PTE_X|PTE_U);
-		// create_mapping(task[i]->mm->pagetable_address, USER_END-PAGE_SIZE*i,kmalloc(PAGE_SIZE),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+		do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
+		do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
+		
+		create_mapping(task[i]->mm->pagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X|PTE_U);
+		create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+		create_mapping(task[i]->mm->kpagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X);
+		create_mapping(task[i]->mm->kpagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W);
 
-		task[i]->sscratch = (void*)task[i]+PAGE_SIZE;
+		task[i]->thread.sscratch = (void*)task[i]+PAGE_SIZE;
 		task[i]->xstate=-1;
 		task[i]->chan=0;
 		initlock(&(task[i]->lk), "proc");
-		task[i]->thread.sp=(unsigned long long)task[i]+TASK_SIZE;
+		task[i]->thread.sp=(unsigned long long)USER_END;
 		task[i]->thread.ra=(unsigned long long)&first_switch_to;
 
 		task[i]->cwd = ename("/");
@@ -155,7 +165,8 @@ void schedule(void){
 		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 #endif
-	
+	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)task[next]->mm->pagetable>>12)));
+	asm volatile("sfence.vma");
 	//spipe_test();
 	switch_to(task[next]);
 }
@@ -222,8 +233,8 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 		parentVMA=parentVMA->vm_next;
 	}while(parentVMA!=current->mm->vma);
 
-	task[child]->mm->pagetable_address=K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-	memcpy(task[child]->mm->pagetable_address, kernel_pagetable, PAGE_SIZE);
+	task[child]->mm->pagetable=K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	memcpy(task[child]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
 
 	task[child]->sscratch=task[child]->stack[SSCRATCH];
 	task[child]->thread.sp=(void*)task[child]+PAGE_SIZE;

@@ -51,6 +51,7 @@ uint64 kwalkaddr(pagetable_t kpt, uint64 va)
  */
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
     //do some align
+    printf("pgtbl:%p, va:%p, pa:%p\n", pgtbl, va, pa);
     if(sz==0) return;
     uint64 pgStart = PAGE_ROUNDDOWN(va);
     uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
@@ -81,41 +82,41 @@ void paging_init(){
     memset(kernel_pagetable, 0, PAGE_SIZE);
 
     //UART
-    create_mapping(kernel_pagetable, UARTHS_BASE_ADDR, UARTHS_BASE_ADDR, PAGE_SIZE, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, UARTHS_BASE_ADDR, UARTHS_P, PAGE_SIZE, PTE_R | PTE_W);
 
     #ifdef QEMU
-    create_mapping(kernel_pagetable, VIRTIO0, VIRTIO0, PAGE_SIZE, PTE_R|PTE_W);
+    create_mapping(kernel_pagetable, VIRTIO0, VIRTIO0_P, PAGE_SIZE, PTE_R|PTE_W);
     #endif
 
     //CLINT
-    create_mapping(kernel_pagetable, CLINT_BASE_ADDR, CLINT_BASE_ADDR, 0x10000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, CLINT_BASE_ADDR, CLINT_P, 0x10000, PTE_R | PTE_W);
     // PLIC
-    create_mapping(kernel_pagetable, PLIC_BASE_ADDR, PLIC_BASE_ADDR, 0x4000, PTE_R | PTE_W);
-    create_mapping(kernel_pagetable, PLIC_BASE_ADDR + 0x200000, PLIC_BASE_ADDR + 0x200000, 0x4000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, PLIC_BASE_ADDR, PLIC_P, 0x4000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, PLIC_BASE_ADDR + 0x200000, PLIC_P + 0x200000, 0x4000, PTE_R | PTE_W);
 
     #ifndef QEMU
     // GPIOHS
-    create_mapping(kernel_pagetable, GPIOHS_BASE_ADDR, GPIOHS_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, GPIOHS_BASE_ADDR, GPIOHS_P, 0x1000, PTE_R | PTE_W);
     // DMAC
-    create_mapping(kernel_pagetable, DMAC_BASE_ADDR, DMAC_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, DMAC_BASE_ADDR, DMAC_P, 0x1000, PTE_R | PTE_W);
 
     // SPI_SLAVE
-    create_mapping(kernel_pagetable, SPI_SLAVE_BASE_ADDR, SPI_SLAVE_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, SPI_SLAVE_BASE_ADDR, SPI_P, 0x1000, PTE_R | PTE_W);
 
     // FPIOA
-    create_mapping(kernel_pagetable, FPIOA_BASE_ADDR, FPIOA_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, FPIOA_BASE_ADDR, FPIOA_P, 0x1000, PTE_R | PTE_W);
 
     // SPI0
-    create_mapping(kernel_pagetable, SPI0_BASE_ADDR, SPI0_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, SPI0_BASE_ADDR, SPI0_P, 0x1000, PTE_R | PTE_W);
 
     // SPI1
-    create_mapping(kernel_pagetable, SPI1_BASE_ADDR, SPI1_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, SPI1_BASE_ADDR, SPI1_P, 0x1000, PTE_R | PTE_W);
 
     // SPI2
-    create_mapping(kernel_pagetable, SPI2_BASE_ADDR, SPI2_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, SPI2_BASE_ADDR, SPI2_P, 0x1000, PTE_R | PTE_W);
 
     // SYSCTL
-    create_mapping(kernel_pagetable, SYSCTL_BASE_ADDR, SYSCTL_BASE_ADDR, 0x1000, PTE_R | PTE_W);
+    create_mapping(kernel_pagetable, SYSCTL_BASE_ADDR, SYSCTL_P, 0x1000, PTE_R | PTE_W);
     #endif
 
     #ifdef DEBUG
@@ -150,7 +151,7 @@ unsigned long get_unmapped_area(size_t length){
     int i,n=(length>>PAGE_SHIFT);
     while(1){
         for(i=0;i<n;i++){
-            if((((uint64)walk(current->mm->pagetable_address, start+PAGE_SIZE*i, 0))&PTE_V)==0) break;
+            if((((uint64)walk(current->mm->pagetable, start+PAGE_SIZE*i, 0))&PTE_V)==0) break;
         }
         if(i==n) break;
         start=start+PAGE_SIZE*(i+1);
@@ -164,7 +165,7 @@ void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
     size_t alength = PAGE_ROUNDUP(len);
     int i;
     for(i=0;i<(alength>>PAGE_SHIFT);i++){
-        if(((uint64) walk(mm->pagetable_address, astart+PAGE_SIZE*i, 0))&PTE_V != 0) break;
+        if(((uint64) walk(mm->pagetable, astart+PAGE_SIZE*i, 0))&PTE_V != 0) break;
     }
     if(i!=(alength>>PAGE_SHIFT)) astart=get_unmapped_area(alength);
 
@@ -221,7 +222,7 @@ int munmap(void *start, size_t len)
         if (vma->vm_start==start&&vma->vm_end==end)
         {
             va=start;
-            free_page_tables(current->mm->pagetable_address, va, alength>>PAGE_SHIFT, 1);
+            free_page_tables(current->mm->pagetable, va, alength>>PAGE_SHIFT, 1);
             struct vm_area_struct *next = vma->vm_next;
             struct vm_area_struct *prev = vma->vm_prev;
             if(next==vma)

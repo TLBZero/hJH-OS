@@ -39,6 +39,8 @@
 
 #define PHY2VIRT(pa)  ((pa)^(0xFFFFFFE080000000UL))
 
+#define VIRT_OFFSET             0x3F00000000L
+
 #ifndef QEMU
 #define SBIBASE         0x80000000UL
 #define SBISIZE         0x20000UL
@@ -64,12 +66,15 @@
 
 #ifdef QEMU
 // virtio mmio interface
-#define VIRTIO0                 (0x10001000UL)
+#define VIRTIO0_P               (0x10001000UL)
+#define VIRTIO0                 (VIRTIO0_P + VIRT_OFFSET)
 #endif
 
 /* Under Coreplex */
-#define CLINT_BASE_ADDR     (0x02000000UL)
-#define PLIC_BASE_ADDR      (0x0C000000UL)
+#define CLINT_P             (0x02000000UL)
+#define CLINT_BASE_ADDR     (CLINT_P + VIRT_OFFSET)
+#define PLIC_P              (0x0C000000UL)
+#define PLIC_BASE_ADDR      (PLIC_P + VIRT_OFFSET)
 
 #define PLIC_PRIORITY           (PLIC_BASE_ADDR + 0x0)
 #define PLIC_PENDING            (PLIC_BASE_ADDR + 0x1000)
@@ -83,13 +88,15 @@
 
 /* Under TileLink */
 #ifndef QEMU
-#define UARTHS_BASE_ADDR    (0x38000000UL)
+#define UARTHS_P                (0x38000000UL)
 #else
-#define UARTHS_BASE_ADDR    (0x10000000UL)
+#define UARTHS_P                (0x10000000UL)
 #endif
+#define UARTHS_BASE_ADDR        (UARTHS_P + VIRT_OFFSET)
 
 #ifndef QEMU
-#define GPIOHS_BASE_ADDR    (0x38001000UL)
+#define GPIOHS_P                (0x38001000UL)
+#define GPIOHS_BASE_ADDR        (GPIOHS_P + VIRT_OFFSET)
 
 /* Under AXI 64 bit */
 #define RAM_BASE_ADDR       (0x80000000UL)
@@ -114,38 +121,46 @@
 #define ROM_SIZE            (128 * 1024UL)
 
 /* Under AHB 32 bit */
-#define DMAC_BASE_ADDR      (0x50000000UL)
+#define DMAC_P              (0x50000000UL)
+#define DMAC_BASE_ADDR      (DMAC_P + VIRT_OFFSET)
 
 /* Under APB1 32 bit */
-#define GPIO_BASE_ADDR      (0x50200000UL)
-#define UART1_BASE_ADDR     (0x50210000UL)
-#define UART2_BASE_ADDR     (0x50220000UL)
-#define UART3_BASE_ADDR     (0x50230000UL)
-#define SPI_SLAVE_BASE_ADDR (0x50240000UL)
-#define I2S0_BASE_ADDR      (0x50250000UL)
-#define I2S1_BASE_ADDR      (0x50260000UL)
-#define I2S2_BASE_ADDR      (0x50270000UL)
-#define I2C0_BASE_ADDR      (0x50280000UL)
-#define I2C1_BASE_ADDR      (0x50290000UL)
-#define I2C2_BASE_ADDR      (0x502A0000UL)
-#define FPIOA_BASE_ADDR     (0x502B0000UL)
-#define SHA256_BASE_ADDR    (0x502C0000UL)
-#define TIMER0_BASE_ADDR    (0x502D0000UL)
-#define TIMER1_BASE_ADDR    (0x502E0000UL)
-#define TIMER2_BASE_ADDR    (0x502F0000UL)
+#define GPIO_P              (0x50200000UL)
+#define GPIO_BASE_ADDR      (GPIOHS_P + VIRT_OFFSET)
+#define UART1_BASE_ADDR     (0x50210000UL + VIRT_OFFSET)
+#define UART2_BASE_ADDR     (0x50220000UL + VIRT_OFFSET)
+#define UART3_BASE_ADDR     (0x50230000UL + VIRT_OFFSET)
+#define SPI_P               (0x50240000UL)
+#define SPI_SLAVE_BASE_ADDR (SPI_P + VIRT_OFFSET)
+#define I2S0_BASE_ADDR      (0x50250000UL + VIRT_OFFSET)
+#define I2S1_BASE_ADDR      (0x50260000UL + VIRT_OFFSET)
+#define I2S2_BASE_ADDR      (0x50270000UL + VIRT_OFFSET)
+#define I2C0_BASE_ADDR      (0x50280000UL + VIRT_OFFSET)
+#define I2C1_BASE_ADDR      (0x50290000UL + VIRT_OFFSET)
+#define I2C2_BASE_ADDR      (0x502A0000UL + VIRT_OFFSET)
+#define FPIOA_P             (0x502B0000UL)
+#define FPIOA_BASE_ADDR     (FPIOA_P + VIRT_OFFSET)
+#define SHA256_BASE_ADDR    (0x502C0000UL + VIRT_OFFSET)
+#define TIMER0_BASE_ADDR    (0x502D0000UL + VIRT_OFFSET)
+#define TIMER1_BASE_ADDR    (0x502E0000UL + VIRT_OFFSET)
+#define TIMER2_BASE_ADDR    (0x502F0000UL + VIRT_OFFSET)
 
 /* Under APB2 32 bit */
-#define WDT0_BASE_ADDR      (0x50400000UL)
-#define WDT1_BASE_ADDR      (0x50410000UL)
-#define OTP_BASE_ADDR       (0x50420000UL)
-#define DVP_BASE_ADDR       (0x50430000UL)
-#define SYSCTL_BASE_ADDR    (0x50440000UL)
-#define AES_BASE_ADDR       (0x50450000UL)
-#define RTC_BASE_ADDR       (0x50460000UL)
+#define WDT0_BASE_ADDR      (0x50400000UL + VIRT_OFFSET)
+#define WDT1_BASE_ADDR      (0x50410000UL + VIRT_OFFSET)
+#define OTP_BASE_ADDR       (0x50420000UL + VIRT_OFFSET)
+#define DVP_BASE_ADDR       (0x50430000UL + VIRT_OFFSET)
+#define SYSCTL_P            (0x50440000UL)
+#define SYSCTL_BASE_ADDR    (SYSCTL_P + VIRT_OFFSET)
+#define AES_BASE_ADDR       (0x50450000UL + VIRT_OFFSET)
+#define RTC_BASE_ADDR       (0x50460000UL + VIRT_OFFSET)
 
 
 /* Under APB3 32 bit */
-#define SPI0_BASE_ADDR      (0x52000000UL)
-#define SPI1_BASE_ADDR      (0x53000000UL)
-#define SPI2_BASE_ADDR      (0x54000000UL)
+#define SPI0_P              (0x52000000UL)
+#define SPI0_BASE_ADDR      (SPI0_P + VIRT_OFFSET)
+#define SPI1_P              (0x53000000UL)
+#define SPI1_BASE_ADDR      (SPI1_P + VIRT_OFFSET)
+#define SPI2_P              (0x54000000UL)
+#define SPI2_BASE_ADDR      (SPI2_P + VIRT_OFFSET)
 #endif
