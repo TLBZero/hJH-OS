@@ -19,6 +19,7 @@ typedef long long       int64;
 typedef unsigned long   uintptr_t;
 typedef unsigned long   size_t;
 typedef unsigned long   __off_t;
+typedef int pgprot_t;
 
 typedef int     pid_t;
 typedef int64   off_t;

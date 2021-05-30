@@ -205,7 +205,25 @@ void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
 void *mmap(void *start, size_t len, int prot, int flags,
                   int fd, off_t off)
 {
-    return do_mmap(current->mm, start, len, prot);
+    if(fd<=2){
+        return do_mmap(current->mm, start, len, prot);
+    }
+    else 
+    {
+        printf("====================================================================================\n");
+        struct vm_area_struct* nvma = kmalloc(sizeof(struct vm_area_struct));
+        nvma->vm_flags = flags;
+        nvma->vm_page_prot = prot;
+        nvma->file = current->FTable[fd];
+        nvma->vm_mm = current->mm;
+        nvma->vm_prev = current->mm->vma;
+        nvma->vm_next = current->mm->vma->vm_next;
+        current->mm->vma->vm_next->vm_prev = nvma;
+        current->mm->vma->vm_next = nvma;
+        nvma->file->f_pos = off;
+        fread(nvma->file, start, len);
+        return start;
+    }
 }
 
 void free_page_tables(uint64 pagetable, uint64 va, uint64 n, int free_frame){

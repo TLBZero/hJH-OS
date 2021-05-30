@@ -60,8 +60,6 @@ struct thread_struct {
     uint64 s11;
 };
 
-typedef struct { unsigned long pgprot; } pgprot_t;
-
 struct vm_area_struct {
     /* Our start address within vm_area. */
     unsigned long vm_start;		
@@ -74,7 +72,8 @@ struct vm_area_struct {
     /* Access permissions of this VMA. */
     pgprot_t vm_page_prot;
     /* Flags*/
-    unsigned long vm_flags;	
+    unsigned long vm_flags;
+    struct file * file;
 };
 
 struct mm_struct {

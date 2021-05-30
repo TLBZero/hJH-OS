@@ -91,7 +91,7 @@ void task_init(void){
 		do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
 		do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
 		
-		create_mapping(task[i]->mm->pagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X|PTE_U);
+		create_mapping(task[i]->mm->pagetable, 0, task_test, TASK_SIZE*2, PTE_R|PTE_W|PTE_X|PTE_U);
 		create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
 		// create_mapping(task[i]->mm->kpagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X);
 		// create_mapping(task[i]->mm->kpagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W);
@@ -257,23 +257,23 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 	task[child]->stack[SEPC] += 4;
 
 	task[child]->mm=(struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-	// struct vm_area_struct *parentVMA=current->mm->vma, *childVMA;
-	// if (parentVMA) do {
-	// 	childVMA=(struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
-	// 	memcpy(childVMA, parentVMA, sizeof(struct vm_area_struct));
-	// 	if(task[child]->mm->vma) {
-	// 		childVMA->vm_prev=task[child]->mm->vma;
-	// 		childVMA->vm_next=task[child]->mm->vma->vm_next;
-	// 		task[child]->mm->vma->vm_next->vm_prev=childVMA;
-	// 		task[child]->mm->vma->vm_next=childVMA;
-	// 	}
-	// 	else {
-	// 		task[child]->mm->vma=childVMA;
-	// 		childVMA->vm_prev=childVMA;
-	// 		childVMA->vm_next=childVMA;
-	// 	}
-	// 	parentVMA=parentVMA->vm_next;
-	// }while(parentVMA!=current->mm->vma);
+	struct vm_area_struct *parentVMA=current->mm->vma, *childVMA;
+	if (parentVMA) do {
+		childVMA=(struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
+		memcpy(childVMA, parentVMA, sizeof(struct vm_area_struct));
+		if(task[child]->mm->vma) {
+			childVMA->vm_prev=task[child]->mm->vma;
+			childVMA->vm_next=task[child]->mm->vma->vm_next;
+			task[child]->mm->vma->vm_next->vm_prev=childVMA;
+			task[child]->mm->vma->vm_next=childVMA;
+		}
+		else {
+			task[child]->mm->vma=childVMA;
+			childVMA->vm_prev=childVMA;
+			childVMA->vm_next=childVMA;
+		}
+		parentVMA=parentVMA->vm_next;
+	}while(parentVMA!=current->mm->vma);
 
 	task[child]->mm->pagetable=K_VA2PA((uint64)kmalloc(PAGE_SIZE));
 	memcpy(task[child]->mm->pagetable, current->mm->pagetable, PAGE_SIZE);
