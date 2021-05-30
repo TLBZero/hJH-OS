@@ -6,8 +6,8 @@ AR=${CROSS_}ar
 LD=${CROSS_}ld
 NM=${CROSS_}nm
 OBJCOPY=${CROSS_}objcopy
-# PLATFORM=k210
-PLATFORM=qemu
+PLATFORM=k210
+# PLATFORM=qemu
 MODE=release
 # MODE=debug
 
