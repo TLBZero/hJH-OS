@@ -1,7 +1,7 @@
 .equ THREAD_OFFSET, 56
 
 .macro save_all
-    addi sp, sp, -248
+    addi sp, sp, -272
     sd x1, 0(sp)
     sd x2, 8(sp)
     sd x3, 16(sp)
@@ -33,6 +33,12 @@
     sd x29, 224(sp)
     sd x30, 232(sp)
     sd x31, 240(sp)
+    csrr t0, sepc
+    sd t0, 248(sp)
+    csrr t0, sstatus
+    sd t0, 256(sp)
+    csrr t0, sscratch
+    sd t0, 264(sp)
 .endm
 
 .macro load_all
@@ -67,7 +73,7 @@
     ld x3, 16(sp)
     ld x2, 8(sp)
     ld x1, 0(sp)
-    addi sp, sp, 248
+    addi sp, sp, 272
 .endm
 
 .macro save_tss base

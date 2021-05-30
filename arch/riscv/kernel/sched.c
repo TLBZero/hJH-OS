@@ -67,7 +67,6 @@ void task_init(void){
 		task[i]->ppid=0;
 
 		task[i]->stack = (uint64)kmalloc(STACK_SIZE);
-		task[i]->allocated_stack = 0;
 
 		/* 新增-wdl */
 		task[i]->xstate=-1;
@@ -148,7 +147,7 @@ void schedule(void){
 			if(c<0||c>(*p)->counter) c=(*p)->counter,next=i;//if p is the first non-empty task or p's counter is smaller, then choose it.
 		}
 	}
-	for(int i=1;i<=LAB_TEST_NUM;i++) if(task[i] && task[i]->state==TASK_READY&&task[i]->counter==0) {
+	for(int i=1;i<NR_TASKS;i++) if(task[i] && task[i]->state==TASK_READY&&task[i]->counter==0) {
 		task[i]->counter=rand();
 		printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
 	}
@@ -245,10 +244,7 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 	task[child]->blocked=0;
 	task[child]->pid=child;
 	task[child]->ppid=current->pid;
-	if (stack!=NULL)
-		task[child]->stack=stack;
-	else
-		task[child]->stack=(uint64*)kmalloc(STACK_SIZE);
+	task[child]->stack=(uint64*)kmalloc(STACK_SIZE);
 	task[child]->xstate=-1;
 	task[child]->chan=0;
 
@@ -256,41 +252,45 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 	task[child]->stime=0;
 	task[child]->cutime=0;
 	task[child]->cstime=0;
-
 	memcpy(task[child]->stack, current->stack, STACK_SIZE);
 	task[child]->stack[REG_A(0)] = 0;
 	task[child]->stack[SEPC] += 4;
 
 	task[child]->mm=(struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-	struct vm_area_struct *parentVMA=current->mm->vma, *childVMA;
-	if (parentVMA) do {
-		childVMA=(struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
-		memcpy(childVMA, parentVMA, sizeof(struct vm_area_struct));
-		if(task[child]->mm->vma) {
-			childVMA->vm_prev=task[child]->mm->vma;
-			childVMA->vm_next=task[child]->mm->vma->vm_next;
-			task[child]->mm->vma->vm_next->vm_prev=childVMA;
-			task[child]->mm->vma->vm_next=childVMA;
-		}
-		else {
-			task[child]->mm->vma=childVMA;
-			childVMA->vm_prev=childVMA;
-			childVMA->vm_next=childVMA;
-		}
-		parentVMA=parentVMA->vm_next;
-	}while(parentVMA!=current->mm->vma);
+	// struct vm_area_struct *parentVMA=current->mm->vma, *childVMA;
+	// if (parentVMA) do {
+	// 	childVMA=(struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
+	// 	memcpy(childVMA, parentVMA, sizeof(struct vm_area_struct));
+	// 	if(task[child]->mm->vma) {
+	// 		childVMA->vm_prev=task[child]->mm->vma;
+	// 		childVMA->vm_next=task[child]->mm->vma->vm_next;
+	// 		task[child]->mm->vma->vm_next->vm_prev=childVMA;
+	// 		task[child]->mm->vma->vm_next=childVMA;
+	// 	}
+	// 	else {
+	// 		task[child]->mm->vma=childVMA;
+	// 		childVMA->vm_prev=childVMA;
+	// 		childVMA->vm_next=childVMA;
+	// 	}
+	// 	parentVMA=parentVMA->vm_next;
+	// }while(parentVMA!=current->mm->vma);
 
 	task[child]->mm->pagetable=K_VA2PA((uint64)kmalloc(PAGE_SIZE));
 	memcpy(task[child]->mm->pagetable, current->mm->pagetable, PAGE_SIZE);
 
-	task[child]->thread.sscratch=task[child]->stack[SSCRATCH];
-	task[child]->thread.sp=(void*)task[child]+PAGE_SIZE;
-	task[child]->allocated_stack = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-	memcpy((void*)task[child]->allocated_stack, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE);
+	if (!stack)
+		stack = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	else
+		stack = kwalkaddr(current->mm->pagetable, stack);
+	delete_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), PAGE_SIZE);
+	create_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), stack, PAGE_SIZE, PTE_R|PTE_W|PTE_U);
+	memcpy(stack, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE);
 
+	task[child]->thread.sp=(void*)task[child]+PAGE_SIZE;
 	task[child]->thread.ra=(unsigned long long)&forket;
 	uint64 sepc;
 	r_csr(sepc, sepc);
+	printf("sepc:%p\n", sepc);
 	task[child]->thread.sepc= (sepc + 4);
 
 	procfile_init(task[child]);
@@ -341,6 +341,7 @@ int parse_ph_flags(struct proghdr* ph)
 
 int exec(const char *path, char *const argv[], char *const envp[])
 {
+	printf("path:%s, addr:%p\n", path, path);
 	char _path[FAT32_MAX_PATH];
 	strcpy(_path, path);
 	struct dirent* inode;
@@ -386,6 +387,7 @@ int exec(const char *path, char *const argv[], char *const envp[])
 	current->mm->pagetable = pagetable;
 	current->thread.sscratch = USER_END;
 	current->thread.sepc = elf.entry;
+	printf("sepc:%p", elf.entry);
 	w_csr(sepc, elf.entry);
 	printf("2\n");
 	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)pagetable>>12)));
