@@ -3,6 +3,7 @@
 #include "time.h"
 #include "types.h"
 #include "sysfile.h"
+#include "vm.h"
 
 #define TASK_SIZE   (4096)
 #define THREAD_OFFSET  (7 * 0x08)
@@ -77,7 +78,9 @@ struct vm_area_struct {
 };
 
 struct mm_struct {
-    uint64 pagetable_address;
+    // uint64 pagetable_address;
+    pagetable_t pagetable;
+    pagetable_t kpagetable;
     struct vm_area_struct *vma;
 };
 

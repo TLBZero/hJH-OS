@@ -4,6 +4,8 @@
 
 _start:
 	# Set sp
+	la t0, stack_top
+	csrw sscratch, t0
 	la sp, init_stack_top
 
 	# jmp to start_kernel

@@ -6,6 +6,7 @@
 .equ FRAMESIZE, 300
 
 trap_s:
+		csrrw sp, sscratch, sp
         save_all
 
 		csrr a0, scause
@@ -16,8 +17,7 @@ trap_s:
 
         load_all
 
-		li t0, 0x100
-		csrs sstatus, t0
+		csrrw sp, sscratch, sp
 sret
 
 /* this function do the context switch
@@ -59,10 +59,15 @@ ret
 
 .global first_switch_to
 .type first_switch_to, @function
+.extern task_test
 first_switch_to:
 	li t0, 0x100
+	csrc sstatus, t0
+	li t0, 0x40002
 	csrs sstatus, t0
 	la t0, task_test
+	li t1, 0xFFF
+	and t0, t0, t1
 	csrw sepc, t0
 sret
 
