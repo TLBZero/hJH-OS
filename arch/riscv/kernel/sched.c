@@ -383,17 +383,12 @@ int exec(const char *path, char *const argv[], char *const envp[])
 	c_csr(sstatus, 0x100);
 	s_csr(sstatus, 0x40002);
 	w_csr(sscratch, USER_END);
-	printf("1\n");
 	current->mm->pagetable = pagetable;
 	current->thread.sscratch = USER_END;
 	current->thread.sepc = elf.entry;
-	printf("sepc:%p", elf.entry);
 	w_csr(sepc, elf.entry);
-	printf("2\n");
 	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)pagetable>>12)));
-	printf("3\n");
 	asm volatile("sfence.vma");
-	printf("4\n");
 	return 0;
 
 fail:
