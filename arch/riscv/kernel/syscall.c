@@ -4,6 +4,7 @@
 #include "put.h"
 #include "vm.h"
 #include "riscv.h"
+#include "sysfile.h"
 
 extern uint64 sys_clone();
 extern uint64 sys_execve();
@@ -29,6 +30,9 @@ void syscall(uintptr_t *regs){
     uint64 a5 = regs[REG_A(5)];
     switch (syscall_NR)
     {
+    case SYS_write:
+        regs[REG_A(0)] = sys_write(a0, a1, a2);
+        break;
     case SYS_clone:
         regs[REG_A(0)] = sys_clone(a0, a1, a2, a3, a4);
         break;

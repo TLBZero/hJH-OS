@@ -7,14 +7,10 @@ uint64 sys_clone(int flags, void *stack, pid_t *ptid, void *tls, pid_t *ctid)
     return clone(flags, stack, ptid, tls, ctid);
 }
 
-uint64 sys_execve()
+uint64 sys_execve(const char *path, char *const argv[], char *const envp[])
 {
-
-}
-
-uint64 sys_wait4()
-{
-
+    int ret = exec(path, argv, envp);
+    return ret;
 }
 
 uint64 sys_mmap(void *start, size_t len, int prot, int flags,

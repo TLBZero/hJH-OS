@@ -5,7 +5,7 @@
 #include "sdcard.h"
 #include "sleeplock.h"
 #include "disk.h"
-//#define DEBUG
+#define DEBUG
 
 struct buffer_head buf[BUFNR+1]; // buf[0] acts as head
 static struct buffer_head* free_list;
@@ -101,7 +101,9 @@ struct buffer_head* bread(uint dev, uint blocknr){
     struct buffer_head *bh;
     bh = getblk(dev, blocknr);
     if(!bh->b_uptodate){
+        printf("1\n");
         disk_read(bh);
+        printf("2\n");
         bh->b_uptodate = 1;
     }
     liftBuffer(bh);

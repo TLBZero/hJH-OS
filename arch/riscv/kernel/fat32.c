@@ -3,7 +3,7 @@
 #include "put.h"
 #include "string.h"
 #include "sched.h"
-// #define DEBUG
+#define DEBUG
 union dentry {
     short_name_entry_t  sne;
     long_name_entry_t   lne;
@@ -301,7 +301,6 @@ static uint rwClus(uint32 cluster, int write, void* addr, uint off, uint num){
     uint32 total, sec, m;
     sec = first_sec_of_clus(cluster) + off / FAT.BPB.BytsPerSec;
     off = off % FAT.BPB.BytsPerSec;
-    
     struct buffer_head* bh;
     for(total=0;total<num;total+=m, addr+=m, sec++){
         bh = bread(0,sec);
@@ -816,7 +815,6 @@ int enext(struct dirent *dp, struct dirent *ep, uint off, int *count){
     for(uint32 clusOff;(clusOff=reallocCurClus(dp, off, 0))!=-1;off+=32){
         if(rwClus(dp->cur_clus, 0, &de, clusOff, 32)!=32)
             panic("enext error, rwClus inconsistent!");
-            
         if(de.lne.order == DIR_ENTRY_END)
             return -1;
              
@@ -935,7 +933,7 @@ static int getPPath(char *path, char *name){
 
     strcpy(name, p+1);
     if(p==path) p++; // Root is the parent
-
+ 
     while(p<end) *p++='\0';
     #ifdef DEBUG
     printf("[getPPath]ppath:%s\n", path);

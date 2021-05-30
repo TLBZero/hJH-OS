@@ -242,3 +242,15 @@ int munmap(void *start, size_t len)
     if (!va) return -1;
     return 0;
 }
+
+/**
+ * @brief allocate pages from oldpgtbl to newpgtbl
+ * @param pagetable: pagetable
+ * @param kpagetable: kernel pagetable
+ * @param oldsz: old pagetable size
+ * @param newsz: new pagetable size
+ */
+uint64 uvmalloc(pagetable_t pagetable, pagetable_t kpagetable, uint64 oldsz, uint64 newsz)
+{
+
+}

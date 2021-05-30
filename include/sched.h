@@ -25,7 +25,7 @@
 #define PREEMPT_DISABLE 1
 
 /* Lab3中进程的数量以及每个进程初始的时间片 */
-#define LAB_TEST_NUM        3
+#define LAB_TEST_NUM        1
 
 /* wait的option */
 #define WNOHANG       0
@@ -80,7 +80,6 @@ struct vm_area_struct {
 struct mm_struct {
     // uint64 pagetable_address;
     pagetable_t pagetable;
-    pagetable_t kpagetable;
     struct vm_area_struct *vma;
 };
 
@@ -103,8 +102,6 @@ struct task_struct {
     long cutime;
     long cstime;
 
-    size_t sepc;
-    size_t sscratch;
     struct mm_struct *mm;
     uint64* stack;
     uint64 allocated_stack;

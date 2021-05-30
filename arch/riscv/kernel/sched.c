@@ -11,8 +11,10 @@
 #include "pipe.h"
 #include "time.h"
 #include "systemInfo.h"
+#include "fat32.h"
+#include "elf.h"
 
-// #define DEBUG
+#define DEBUG
 struct task_struct* current;
 struct task_struct* task[NR_TASKS];
 
@@ -21,6 +23,7 @@ long sec,nsec,flag;  //nanosleep所需参数
 extern void __switch_to(unsigned long long, unsigned long long);
 extern void first_switch_to();
 extern void idle();
+extern uint64 kwalkaddr(pagetable_t kpt, uint64 va);
 
 void task_init(void){
 	task[0]=current=(struct task_struct*)TASK_VM_START;		//Task0 Base
@@ -71,21 +74,20 @@ void task_init(void){
 		// task[i]->mm->pagetable_address = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
 		// memcpy(task[i]->mm->pagetable_address, kernel_pagetable, PAGE_SIZE);
 		task[i]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-		task[i]->mm->kpagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-		printf("stack:%p, pgtbl:%p, kpgtbl:%p, ker:%p\n", task[i]->stack,task[i]->mm->pagetable, task[i]->mm->kpagetable, kernel_pagetable);
+		printf("stack:%p, pgtbl:%p, ker:%p\n", task[i]->stack,task[i]->mm->pagetable, kernel_pagetable);
 		memset(task[i]->mm->pagetable, 0, PAGE_SIZE);
-		memset(task[i]->mm->kpagetable, 0, PAGE_SIZE);
+		// memset(task[i]->mm->kpagetable, 0, PAGE_SIZE);
 
 		memcpy(task[i]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
-		memcpy(task[i]->mm->kpagetable, kernel_pagetable, PAGE_SIZE);
+		// memcpy(task[i]->mm->kpagetable, kernel_pagetable, PAGE_SIZE);
 
 		do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
 		do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
 		
 		create_mapping(task[i]->mm->pagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X|PTE_U);
 		create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
-		create_mapping(task[i]->mm->kpagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X);
-		create_mapping(task[i]->mm->kpagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W);
+		// create_mapping(task[i]->mm->kpagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X);
+		// create_mapping(task[i]->mm->kpagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W);
 
 		task[i]->thread.sscratch = (void*)task[i]+PAGE_SIZE;
 		task[i]->xstate=-1;
@@ -177,6 +179,39 @@ void switch_to(struct task_struct* next){
 }
 
 void task_test(void){
+	uint64 _a0 = 0;
+	uint64 _a1 = 0;
+	uint64 _a2 = 0;
+	uint64 _a3 = 0;
+	uint64 _a4 = 0;
+	register uint64 a0 asm("a0") = _a0;
+	register uint64 a1 asm("a1") = _a1;
+	register uint64 a2 asm("a2") = _a2;
+	register uint64 a3 asm("a2") = _a3;
+	register uint64 a4 asm("a2") = _a4;
+	register long syscall_id asm("a7") = 220;
+	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
+	a0 = _a0;
+	a1 = _a1;
+	a2 = _a2;
+	a3 = _a3;
+	a4 = _a4;
+	syscall_id = 220;
+	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
+	char a[6];
+	a[0]='h';
+	a[1]='e';
+	a[2]='l';
+	a[3]='l';
+	a[4]='o';
+	a[5]='\0';
+	a0 = a;
+	a1 = _a1;
+	a2 = _a2;
+	a3 = _a3;
+	a4 = _a4;
+	syscall_id = 221;
+	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
 	// fat_init();
 	// btest();
 	while(1);
@@ -195,6 +230,9 @@ void forket(){
 	ret_from_fork(current->stack);
 }
 
+/**
+ * 复制一个进程
+ */
 pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 {
 	uint64 child=alloc_pid();
@@ -210,6 +248,14 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 		task[child]->stack=stack;
 	else
 		task[child]->stack=(uint64*)kmalloc(STACK_SIZE);
+	task[child]->xstate=-1;
+	task[child]->chan=0;
+
+	task[child]->utime=0;
+	task[child]->stime=0;
+	task[child]->cutime=0;
+	task[child]->cstime=0;
+
 	memcpy(task[child]->stack, current->stack, STACK_SIZE);
 	task[child]->stack[REG_A(0)] = 0;
 	task[child]->stack[SEPC] += 4;
@@ -234,17 +280,126 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 	}while(parentVMA!=current->mm->vma);
 
 	task[child]->mm->pagetable=K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-	memcpy(task[child]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
+	memcpy(task[child]->mm->pagetable, current->mm->pagetable, PAGE_SIZE);
 
-	task[child]->sscratch=task[child]->stack[SSCRATCH];
+	task[child]->thread.sscratch=task[child]->stack[SSCRATCH];
 	task[child]->thread.sp=(void*)task[child]+PAGE_SIZE;
 	task[child]->allocated_stack = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
 	memcpy((void*)task[child]->allocated_stack, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE);
 
 	task[child]->thread.ra=(unsigned long long)&forket;
+	uint64 sepc1;
+	r_csr(sepc, sepc1);
+	task[child]->thread.sepc= (sepc1 + 4);
 
-	printf("[PID = %d] Process fork from [PID = %d] Successfully! counter = %d\n",task[child]->pid,current->pid,task[child]->counter);
+	printf("[clone PID = %d] Process fork from [PID = %d] Successfully! counter = %d\n",task[child]->pid,current->pid,task[child]->counter);
 	return task[child]->pid;
+}
+
+int loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset, uint filesz) 
+{
+	uint64 pa;
+	uint n;
+	if ( (va%PAGE_SIZE) != 0)
+		panic("loadseg error, va should be aligned!");
+
+	for (uint i=0; i<filesz; i+=PAGE_SIZE)
+	{
+		pa = kwalkaddr(pagetable, va);
+		if (pa == NULL)
+			panic("loadseg error, address wrong!");
+		if (filesz - i < PAGE_SIZE)
+			n = filesz-1;
+		else
+			n = PAGE_SIZE;
+		if (eread(ip, pa, offset+i, n)!=n)
+			return -1;
+	}
+
+	return 0;
+    // check whether va is aligned to PAGE_SIZE;
+    // for(i=0; i<filesz; i+=PAGE_SIZE) {
+    //     walk the pagetable, get the corresponding pa of va;
+    //     use readi() to read the content of segment to address pa;
+    // }
+}
+
+int parse_ph_flags(struct proghdr* ph)
+{
+	int flag = 0;
+	if (ph->type != ELF_PROG_LOAD)
+		flag = 1;
+	if (ph->memsz < ph->filesz)
+		flag = 1;
+	if (ph->vaddr + ph->memsz < ph->vaddr)
+		flag = 1;
+	return flag;
+}
+
+int exec(const char *path, char *const argv[], char *const envp[])
+{
+	char _path[FAT32_MAX_PATH];
+	strcpy(_path, path);
+	struct dirent* inode;
+	struct elfhdr elf;
+	struct proghdr ph;
+	pagetable_t pagetable=NULL, oldpagetable;
+	int i, off;
+
+	if ((pagetable = (pagetable_t)kmalloc(PAGE_SIZE)) == NULL)
+	{
+		return -1;
+	}
+	memcpy((void *)pagetable, (void *)kernel_pagetable, PAGE_SIZE);
+	if ((inode = ename(_path)) == NULL)
+		goto fail;
+	printf("1");
+	if (eread(inode, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
+		goto fail;
+	if (elf.magic != ELF_MAGIC)
+		goto fail;
+	printf("2");
+
+	//load program
+	for (i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph))
+	{
+	printf("3");
+		if ((eread(inode, (uint64)&ph, off, sizeof(ph))) != sizeof(ph))
+			goto fail;
+		if (parse_ph_flags(&ph)==1)
+			goto fail;
+		uint64 va = kmalloc(ph.memsz);
+		if (kwalkaddr(pagetable, ph.vaddr))
+			create_mapping(pagetable, ph.vaddr, K_VA2PA(va), ph.memsz, ph.flags|PTE_U);
+		else
+			goto fail;
+		if (ph.vaddr % PAGE_SIZE != 0)
+			goto fail;
+		if (loadseg(pagetable, ph.vaddr, inode, ph.off, ph.filesz) < 0)
+			goto fail;
+	}
+	printf("4");
+	create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+	asm(
+		"li t0, 0x100;\
+		 csrc sstatus, t0;\
+		 li t0, 0x40002;\
+		 csrs sstatus, t0;"
+	);
+
+	current->mm->pagetable = pagetable;
+	current->thread.sscratch = USER_END;
+	current->thread.sepc = elf.entry;
+	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)current->mm->pagetable>>12)));
+	asm volatile("sfence.vma");
+	return 0;
+
+fail:
+	#ifdef DEBUG
+	printf("[S] exec failed!\n");
+	#endif
+	kfree(pagetable);
+	return -1;
 }
 
 /* 返回当前进程的pid*/
@@ -287,6 +442,7 @@ void exit(long status){
 
 void sleep(void *chan, struct spinlock *lk)
 {
+	if(current->pid == 0) return;
 	if(lk!=&current->lk)
 	{
 		acquire(&(current->lk));
@@ -294,6 +450,9 @@ void sleep(void *chan, struct spinlock *lk)
 	}
 	current->chan=chan;
 	current->state=TASK_SLEEPING;
+	#ifdef DEBUG
+	printf("sleep pid:%d\n", current->pid);
+	#endif
 	schedule();
 	current->chan=0;
 	if(lk!=&current->lk)
@@ -311,6 +470,9 @@ void wakeup(void *chan)
 		//acquire(&(task[i]->lk));
 		if(task[i]->state==TASK_SLEEPING && task[i]->chan==chan)
 		{
+			#ifdef DEBUG
+			printf("wake pid:%d\n", task[i]->pid);
+			#endif
 			task[i]->state=TASK_READY;
 		}
 		//release(&(task[i]->lk));

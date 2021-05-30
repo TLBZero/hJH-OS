@@ -3,6 +3,7 @@
 
 #include "types.h"
 
+#define SYS_write 64
 #define SYS_clone 220
 #define SYS_execve 221
 #define SYS_wait4 260

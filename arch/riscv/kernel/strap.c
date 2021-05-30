@@ -68,8 +68,8 @@ void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 					if (irq) plic_complete(irq);
 
 					#ifndef QEMU 
-					w_sip(r_sip() & ~2);    // clear pending bit
-					sbi_set_mie();
+					// w_sip(r_sip() & ~2);    // clear pending bit
+					// sbi_set_mie();
 					#endif
 					break;
 			}

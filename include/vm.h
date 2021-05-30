@@ -59,6 +59,7 @@ pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc);
 int munmap(void *start, size_t len);
 void *mmap(void *start, size_t len, int prot, int flags,
                   int fd, off_t off);
+uint64 uvmalloc(pagetable_t pagetable, pagetable_t kpagetable, uint64 oldsz, uint64 newsz);
 
 extern pagetable_t kernel_pagetable;
 

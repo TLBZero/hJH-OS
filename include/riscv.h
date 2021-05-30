@@ -48,7 +48,7 @@
 
 /* Stack Struct */
 #define REG_X(num) num
-#define REG_A(num) 10+num
+#define REG_A(num) 9+num
 #define SSTATUS 0
 #define SSCRATCH 1
 #define SCAUSE 2
