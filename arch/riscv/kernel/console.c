@@ -17,7 +17,8 @@
 #include "system.h"
 #include "put.h"
 
-#define BACKSPACE 0x100
+#define Enter (13)
+#define BACKSPACE (0x100)
 #define INPUT_BUF 128
 #define C(x)  ((x)-'@')  // Control-x
 #define DEBUG

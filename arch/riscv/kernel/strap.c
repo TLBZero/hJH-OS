@@ -20,7 +20,7 @@ static void dumpInfo(){
 
 void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 	memcpy(current->stack, regs, STACK_SIZE);
-	dumpInfo();
+	//dumpInfo();
 	if(scause>=0){//exception
 		#ifdef DEBUG
 		printf("[strap_handler]Get into EXP\n");
@@ -57,12 +57,14 @@ void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 					int irq = plic_claim();
 					if (UART_IRQ == irq) {
 						// keyboard input, disabled
+						printf("keboard\n");
 						int c = console_getchar();
 						if (-1 != c) {
 							consoleintr(c);
 						}
 					}
 					else if (DISK_IRQ == irq) {
+						printf("disk\n");
 						disk_intr();
 					}
 					else if (irq) {
@@ -72,8 +74,10 @@ void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 					if (irq) plic_complete(irq);
 
 					#ifndef QEMU 
-					w_sip(r_sip() & ~2);    // clear pending bit
-					sbi_set_mie();
+					int64 sip;
+					r_csr(sip, sip);
+					w_csr(sip, sip&~2);	// Clear pending bit
+					set_mie();
 					#endif
 					break;
 			}

@@ -17,7 +17,7 @@ int pipealloc(int *fd0, int *fd1)
     if((sfd0 = falloc()) == -1 || (sfd1 = falloc()) == -1)
         goto bad;
 
-    if((pi = (struct pipe*)kmalloc(1)) == NULL)
+    if((pi = (struct pipe*)kmalloc(sizeof(struct pipe))) == NULL)
         goto bad;
 
     pi->readopen = 1;

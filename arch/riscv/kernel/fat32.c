@@ -3,7 +3,7 @@
 #include "put.h"
 #include "string.h"
 #include "sched.h"
-// #define DEBUG
+#define DEBUG
 union dentry {
     short_name_entry_t  sne;
     long_name_entry_t   lne;
@@ -1097,6 +1097,15 @@ void fat_test(){
     // printf("%s\n", fileContent);
     // eput(ep);
 
+    printf("fat_test!");
+    struct dirent* ep = ename("hello.bin");
+    printf("%s, %d, %d", ep->filename, ep->first_clus, ep->clus_cnt);
+    char buf[1000];
+    eread(ep, buf, 0, 1000);
+    for(int i=1;i<=1000;i++){
+        printf("%x", buf[i-1]);
+        if(i%16==0) printf("\n");
+    }
     printf("[fat_test]done!\n");
     while(1);
 }

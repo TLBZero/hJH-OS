@@ -77,7 +77,7 @@ void frelease(struct file* file){
     }
     file->f_count = 0;
     if(file->f_type == DT_FIFO)
-        pipeclose(-1);
+        pipeclose(file);
     else if(file->f_type & (DT_REG|DT_DIR))
         eput(file->f_entry);
 }
@@ -148,7 +148,7 @@ int fread(struct file* file, void* dst, int num){
             break;
         }
         case DT_FIFO:{
-            //r = piperead()
+            r = piperead(file, dst, num);
             break;
         }
         case DT_CHR:{
@@ -186,7 +186,7 @@ int fwrite(struct file* file, void* src, int num){
             break;
         }
         case DT_FIFO:{
-            //w = pipewrite()
+            w = pipewrite(file, src, num);
             break;
         }
         case DT_CHR:{
@@ -637,10 +637,6 @@ int sys_unlinkat(int dirfd, const char* pathname, int flag){
 }
 
 void sysfile_test(){
-    printf("[sysfile_test]get in!\n");
-    char buf[512] = {0};
-    int r = sys_read(0, buf, 20);
-    printf("%d %s", r, buf);
 
     printf("[sysfile_test]test done!\n");
     while(1);

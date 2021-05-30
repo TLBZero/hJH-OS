@@ -27,12 +27,18 @@ void start_kernel(unsigned long hartid)
 		plic_init();
 		plic_inithart();
 		task_init();
+		#ifndef QEMU
+		fpioa_pin_init();
+		dmac_init();
+		#endif 
 		disk_init();
 		binit();
+		//btest();
 		fat_init();
-		sysfile_init();
-		sysfile_test();
-		while(1);
+		fat_test();
+		//sysfile_init();
+		//sysfile_test();
+		//while(1);
 		timer_init();
 		__sync_synchronize();
 		started = 1;

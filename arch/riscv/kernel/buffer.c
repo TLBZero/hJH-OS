@@ -137,21 +137,22 @@ void brelse(struct buffer_head* bh){
 }
 
 void btest(){
-    static int xxx = 0;
-    struct buffer_head* bh;
-    if(getpid()==1){
-        bh = bread(0, 3);
-        for(int i=0;i<BSIZE;i++) bh->buf[i]=0;
-        bwrite(bh);
-        while(!xxx);
-        brelse(bh);
-    }else{
-        xxx=1;
-        bh = bread(0, 3);
-        for(int i=1;i<=BSIZE;i++){
-            printf("%x ", bh->buf[i-1]);
-            if(i%16==0) puts("\n");
-        }
-        brelse(bh);
-    }
+    
+    // static int xxx = 0;
+    // struct buffer_head* bh;
+    // if(getpid()==1){
+    //     bh = bread(0, 3);
+    //     for(int i=0;i<BSIZE;i++) bh->buf[i]=0;
+    //     bwrite(bh);
+    //     while(!xxx);
+    //     brelse(bh);
+    // }else{
+    //     xxx=1;
+    //     bh = bread(0, 3);
+    //     for(int i=1;i<=BSIZE;i++){
+    //         printf("%x ", bh->buf[i-1]);
+    //         if(i%16==0) puts("\n");
+    //     }
+    //     brelse(bh);
+    // }
 }

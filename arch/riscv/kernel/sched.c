@@ -155,8 +155,7 @@ void schedule(void){
 		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 #endif
-	
-	//spipe_test();
+
 	switch_to(task[next]);
 }
 
@@ -168,6 +167,7 @@ void switch_to(struct task_struct* next){
 void task_test(void){
 	// fat_init();
 	// btest();
+	// test_sdcard();
 	while(1);
 }
 
