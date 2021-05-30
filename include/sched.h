@@ -32,7 +32,7 @@
 #define WUNTRACED     1
 #define WCONTINUED    2
 
-#define STACK_SIZE 31*8
+#define STACK_SIZE 34*8
 
 /* 当前进程 */
 extern struct task_struct *current;
@@ -104,7 +104,6 @@ struct task_struct {
 
     struct mm_struct *mm;
     uint64* stack;
-    uint64 allocated_stack;
     void *chan;
 	struct spinlock lk;
     

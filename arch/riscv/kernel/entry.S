@@ -75,6 +75,12 @@ sret
 .type ret_from_fork, @function
 //a0 => *stack
 ret_from_fork:
+    ld t0, 264(a0)  # sscratch
+    csrw sscratch, t0
+    ld t0, 256(a0)  # sstatus
+    csrw sstatus, t0
+    ld t0, 248(a0)  # sepc
+    csrw sepc, t0
 	ld x31, 240(a0)
     ld x30, 232(a0)
     ld x29, 224(a0)

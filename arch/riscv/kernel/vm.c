@@ -65,6 +65,18 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
     }
 }
 
+void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz){
+    if(sz==0) return;
+    uint64 pgStart = PAGE_ROUNDDOWN(va);
+    uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
+    while(pgStart<=pgEnd){
+        pte_t* pte=walk(pgtbl, pgStart, 0);
+        if(pte==0) panic("delete_mapping error, pte already 0!");
+        else *pte = 0;
+        pgStart+=PAGE_SIZE;
+    }
+}
+
 /**
  * @brief Initialize pages for later uses
  */

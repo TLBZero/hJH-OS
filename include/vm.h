@@ -53,6 +53,7 @@ typedef uint64 pte_t;       //0-level table
 
 void paging_init();
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm);
+void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz);
 pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc);
 
 // void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot);
