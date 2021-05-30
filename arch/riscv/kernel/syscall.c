@@ -12,6 +12,7 @@ extern uint64 sys_wait4();
 extern uint64 sys_mmap(void *start, size_t len, int prot, int flags,
                   int fd, off_t off);
 extern uint64 sys_munmap(void *start, size_t len);
+extern uint64 kwalkaddr(pagetable_t kpt, uint64 va);
 
 static uint64 (*syscalls[])(void) = {
     [SYS_clone]      sys_clone,
@@ -44,6 +45,7 @@ void syscall(uintptr_t *regs){
         break;
     case SYS_execve:
         regs[REG_A(0)] = sys_execve(a0, a1, a2);
+        kwalkaddr(current->mm->pagetable, 0);
     default:
         break;
     }

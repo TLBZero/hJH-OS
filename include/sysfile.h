@@ -5,6 +5,7 @@
 
 #define SYSOFILENUM     100
 #define PROCOFILENUM    16
+#define CONSOLE 1
 
 /* Flags */
 #define O_RDONLY        00000000
@@ -31,24 +32,69 @@
 #define AT_NO_AUTOMOUNT		0x800	/* Suppress terminal automount traversal */
 #define AT_EMPTY_PATH		0x1000	/* Allow empty relative pathname */
 
-#define C_REG       0x01
-#define C_DIR       0x02
+/* these are defined by POSIX and also present in glibc's dirent.h */
+#define DT_UNKNOWN	0
+#define DT_FIFO		1
+#define DT_CHR		2
+#define DT_DIR		4
+#define DT_BLK		6
+#define DT_REG		8
+#define DT_LNK		10
+#define DT_SOCK		12
+#define DT_WHT		14
 
+/* File Permission Control */
 #define READABLE        0x01
 #define WRITABLE        0x02
-#define NO_READ_WRITE   0x03
-#define READ_AND_WRITE  0x04
-
+#define READ_AND_WRITE  0x03
 
 /* File Structure */
 struct file {
-    enum { REG, DIR, LNK, BLK, CHR, PIPE, SOCK} f_type;
-    int f_perm;   // Permission Control
+    uint8 f_type;   /* File type */
+    int f_perm;     /* Permission Control */
     struct dirent* f_entry;
-    int f_count;    // Reference Count
-    uint32 f_pos;   // File Pointer
+    int f_count;    /* Reference Count */
+    uint32 f_pos;   /* File Pointer */
+    uint8 major;    /* Device Distinguisher */
 
     struct pipe *pipe;
+};
+
+struct linux_dirent64 {
+    int64           d_ino;    /* 64-bit inode number */
+    int64           d_off;    /* 64-bit offset to next structure */
+    unsigned short  d_reclen; /* Size of this dirent */
+    unsigned char   d_type;   /* File type */
+    char            d_name[]; /* Filename (null-terminated) */
+};
+
+/* File status */
+struct kstat {
+	dev_t       st_dev;         /* ID of device containing file */
+	ino_t       st_ino;         /* inode number */
+	mode_t      st_mode;        /* protection */
+	nlink_t     st_nlink;       /* number of hard links */
+	uid_t       st_uid;         /* user ID of owner */
+	gid_t       st_gid;         /* group ID of owner */
+	dev_t       st_rdev;        /* device ID (if special file) */
+	unsigned long __pad;
+	off_t       st_size;        /* total size, in bytes */
+	blksize_t   st_blksize;     /* blocksize for file system I/O */
+	int         __pad2;
+	blkcnt_t    st_blocks;      /* number of 512B blocks allocated */
+	long        st_atime_sec;   /* time of last access */
+	long        st_atime_nsec;
+	long        st_mtime_sec;   /* time of last modification */
+	long        st_mtime_nsec;
+	long        st_ctime_sec;   /* time of last status change */
+	long        st_ctime_nsec;
+	unsigned    __unused[2];
+};
+
+/* Map major device number to device functions. */
+struct devsw {
+    int (*read)(int, uint64, int);
+    int (*write)(int, uint64, int);
 };
 
 extern struct spinlock SysFLock;

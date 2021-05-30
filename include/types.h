@@ -20,10 +20,18 @@ typedef unsigned long   uintptr_t;
 typedef unsigned long   size_t;
 typedef unsigned long   __off_t;
 
-typedef unsigned long  time_t;
+typedef int     pid_t;
+typedef int64   off_t;
 
-typedef int pid_t;
-typedef long off_t;
+typedef uint32  mode_t;
+typedef int32   dev_t;
+typedef uint64  ino_t;
+typedef uint16  nlink_t;
+typedef uint32  uid_t;
+typedef uint32  gid_t;
+typedef int32   blksize_t;
+typedef int64   blkcnt_t;
+typedef unsigned long  time_t;
 
 typedef uint32 mode_t;
 

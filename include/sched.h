@@ -158,4 +158,8 @@ void nanosleep(struct timespec *req, struct timespec *rem);
 /* 时间 */
 void time(int64);
 
+/* 内存复制 */
+int either_copy(int user, void* dst, void *src, uint64 len);
+
+
 #endif

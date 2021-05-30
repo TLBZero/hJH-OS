@@ -4,7 +4,7 @@
 #include "types.h"
 #include "spinlock.h"
 
-#define INTERVAL 0xA00000
+#define INTERVAL 0xA0000
 
 extern struct spinlock tickslock;
 extern uint ticks;

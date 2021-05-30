@@ -212,7 +212,7 @@ void virtio_disk_rw(struct buffer_head *b, int write)
   buf0.sector = sector;
   // buf0 is on a kernel stack, which is not direct mapped,
   // thus the call to kvmpa().
-  disk.desc[idx[0]].addr = (uint64)kwalkaddr(kernel_pagetable, (uint64)&buf0);
+  disk.desc[idx[0]].addr = (uint64)kwalkaddr(current->mm->pagetable, (uint64)&buf0);
   disk.desc[idx[0]].len = sizeof(buf0);
   disk.desc[idx[0]].flags = VRING_DESC_F_NEXT;
   disk.desc[idx[0]].next = idx[1];

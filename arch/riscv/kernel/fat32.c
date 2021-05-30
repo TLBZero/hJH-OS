@@ -34,7 +34,7 @@ static struct entry_cache {
 } ecache;
 
 /* root也作为cache的head */
-struct dirent root;
+static struct dirent root;
 
 static uint getClusCnt(uint32 firstClus);
 /**
@@ -367,8 +367,12 @@ struct dirent *edup(struct dirent *entry){
  * @return 成功读取的字符数，或错误返回-1
  */
 int eread(struct dirent *entry, uint64 dst, uint off, uint num){
-    if(entry->attribute & ATTR_DIRECTORY)
-        panic("eread error, read content of directory!");
+    if(entry->attribute & ATTR_DIRECTORY){
+        #ifdef DEBUG
+        printf("eread prompt, read dir!\n");
+        #endif
+        return -1;
+    }
 
     if(off>entry->file_size || off + num < off) return -1;
     // read to the end of file, at most
@@ -398,8 +402,12 @@ int eread(struct dirent *entry, uint64 dst, uint off, uint num){
  * @return 成功写入的字符数，或错误返回-1
  */
 int ewrite(struct dirent *entry, uint64 src, uint off, uint num){
-    if(entry->attribute & ATTR_DIRECTORY)
-        panic("ewrite error, write content of directory!");
+    if(entry->attribute & ATTR_DIRECTORY){
+        #ifdef DEBUG
+        printf("ewrite prompt, write content of dir!\n");
+        #endif
+        return -1;
+    }
     if(off + num < off || entry->attribute & ATTR_READ_ONLY) return -1;
 
     //Empty file
@@ -466,7 +474,6 @@ static struct dirent *eget(struct dirent *parent, char *name){
  * @brief 释放掉cache entry
  */
 void eput(struct dirent *entry){
-    printf("eput:%p name:%s, ref:%d, dirty:%d\n",entry, entry->filename, entry->refcnt, entry->dirty);
     acquire(&ecache.lock);
     if (entry != &root && entry->refcnt == 1){
         release(&ecache.lock);
@@ -567,7 +574,7 @@ uint8 cal_checksum(uchar* shortname){
  * @param ep 即指定的entry
  * @param off entry在目录下的偏移量
  */
-void emake(struct dirent *dp, struct dirent *ep, uint off){
+static void emake(struct dirent *dp, struct dirent *ep, uint off){
     if (!(dp->attribute & ATTR_DIRECTORY))
         panic("emake error, not dir!");
     if (off%32)
@@ -658,7 +665,8 @@ struct dirent *ealloc(struct dirent *dp, char *name, int attr){
         #ifdef DEBUG
         printf("[ealloc]ealloc exist, name:%s, first_clus:%d, clus_cnt:%d\n", ep->filename, ep->first_clus, ep->clus_cnt);
         #endif
-        return ep;
+        eput(ep);
+        return NULL;
     }
     #ifdef DEBUG
     printf("[ealloc]offset:%x\n", off);
@@ -682,7 +690,7 @@ struct dirent *ealloc(struct dirent *dp, char *name, int attr){
 
     liftEntry(ep);
     ep->dirty = 1;
-    eupdate(ep);// Write updates into disk
+    eupdate(ep); // Write updates into disk
     ep->uptodate = 1;
     releasesleep(&ep->lock);
     #ifdef DEBUG
@@ -755,6 +763,8 @@ void eremove(struct dirent *entry){
         off += 32;
         clusOff = reallocCurClus(entry->parent, off, 0);
     }
+    entry->dirty = 0;
+    memset(entry->filename, 0, FAT32_MAX_FILENAME+1); // In case mistaken as cache
 }
 
 static void read_long_name(char *filename, union dentry *de){
@@ -905,6 +915,7 @@ struct dirent *dirlookup(struct dirent *dp, char *filename, uint *poff){
         off += (count<<5);
     }
     if(poff) *poff = off;
+    memset(ep->filename, 0, FAT32_MAX_FILENAME+1);// Not found, shall clear it's name
     eput(ep);
     return NULL;
 }
@@ -966,10 +977,18 @@ struct dirent *ename(char *path){
         printf("[ename]entry:%s, name:%s\n", entry->filename, name);
         #endif
         acquiresleep(&entry->lock);
-        if(!(entry->attribute&ATTR_DIRECTORY))
-            panic("ename error, path invalid!");
-        if((next=dirlookup(entry, name, 0))==NULL)
-            panic("ename error, file not found!");
+        if(!(entry->attribute&ATTR_DIRECTORY)){ // Dir invalid
+            #ifdef DEBUG
+            printf("ename prompt, enter non-dir\n");
+            #endif
+            return NULL;
+        }
+        if((next=dirlookup(entry, name, 0))==NULL){ // File not exist
+            #ifdef DEBUG
+            printf("ename prompt, path invalid\n");
+            #endif
+            return NULL;
+        }
         releasesleep(&entry->lock);
         eput(entry);
         entry = next;
@@ -1023,6 +1042,14 @@ int epath(struct dirent* ep, char *buf, uint size){
     return 0;
 }
 
+/**
+ * @brief entry的长度(不是大小)
+ */
+uint elen(struct dirent* ep){
+    return ep->clus_cnt*FAT.BytSPerClus;
+}
+
+
 void fat_test(){
     // struct buffer_head* bh = bread(0, first_sec_of_clus(2));
     // for(int i=1;i<=BSIZE;i++){
@@ -1068,6 +1095,15 @@ void fat_test(){
     // printf("%s\n", fileContent);
     // eput(ep);
 
+    printf("fat_test!");
+    struct dirent* ep = ename("hello.bin");
+    printf("%s, %d, %d", ep->filename, ep->first_clus, ep->clus_cnt);
+    char buf[1000];
+    eread(ep, buf, 0, 1000);
+    for(int i=1;i<=1000;i++){
+        printf("%x", buf[i-1]);
+        if(i%16==0) printf("\n");
+    }
     printf("[fat_test]done!\n");
     while(1);
 }

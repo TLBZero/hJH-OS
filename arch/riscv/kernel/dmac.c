@@ -341,9 +341,9 @@ static void *dmac_chan = (void *) DMAC_BASE_ADDR;
 void dmac_wait_idle(dmac_channel_number_t channel_num)
 {
     while(!dmac_is_idle(channel_num)){
-        // acquire(&current->lk);
-        // sleep(dmac_chan, &current->lk);
-        // release(&current->lk);
+        acquire(&current->lk);
+        sleep(dmac_chan, &current->lk);
+        release(&current->lk);
     }
     dmac_chanel_interrupt_clear(channel_num);
 }

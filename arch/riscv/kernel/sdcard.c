@@ -361,41 +361,35 @@ void sdcard_read_sector(uint8 *buf, int sectorno){
 		address = sectorno;
 	}
 
-	// enter critical section!
 	acquiresleep(&sdcard_lock);
-	// printf("[sdcard_read]after acquire sleeplock\n");
 
 	sd_send_cmd(SD_CMD17, address, 0);
-	// printf("[sdcard_read]debug 1\n");
 
 	result = sd_get_response_R1();
-	// printf("[sdcard_read]debug 2\n");
 
 	if (0 != result) {
 		releasesleep(&sdcard_lock);
 		panic("sdcard: fail to read");
 	}
 
-	// printf("[sdcard_read]debug 3\n");
-
 	int timeout = 0xffffff;
 	while (--timeout) {
 		sd_read_data(&result, 1);
 		if (0xfe == result) break;
 	}
-	// printf("[sdcard_read]debug 4\n");
+
 	if (0 == timeout) {
 		panic("sdcard: timeout waiting for reading");
 	}
-	// printf("[sdcard_read]debug 5\n");
+
 	sd_read_data_dma(buf, BSIZE);
-	// printf("[sdcard_read]debug 6\n");
+
 	sd_read_data(dummy_crc, 2);
 	sd_end_cmd();
 
-	// printf("[sdcard_read]before release sleeplock\n");
+
 	releasesleep(&sdcard_lock);
-	// leave critical section!
+
 }
 
 void sdcard_write_sector(uint8 *buf, int sectorno) {
@@ -472,7 +466,6 @@ void sdcard_write_sector(uint8 *buf, int sectorno) {
 
 // A simple test for sdcard read/write test 
 void test_sdcard(void) {
-	intr_off();
 	uint8 buf[BSIZE];
 
 	for (int sec = 0; sec < 5; sec++) {
@@ -480,9 +473,9 @@ void test_sdcard(void) {
 			buf[i] = 0xaa;		// data to be written 
 		}
 
-		// printf("before write\n");
-		// sdcard_write_sector(buf, sec);
-		// printf("after write\n");
+		printf("before write\n");
+		sdcard_write_sector(buf, sec);
+		printf("after write\n");
 
 		for (int i = 0; i < BSIZE; i ++) {
 			buf[i] = 0xff;		// fill in junk

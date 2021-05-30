@@ -13,6 +13,7 @@
 #include "systemInfo.h"
 #include "fat32.h"
 #include "elf.h"
+#include "sysfile.h"
 
 #define DEBUG
 struct task_struct* current;
@@ -44,10 +45,17 @@ void task_init(void){
     task[0]->cstime=0;
 
 	initlock(&(task[0]->lk), "proc");
-	task[0]->thread.sp=TASK_VM_START+TASK_SIZE;	//Task0 Base + 4kb
+	task[0]->thread.sp=USER_END;	//Task0 Base + 4kb
 
-	task[0]->cwd = ename("/");
-	memset(task[0]->FTable, 0, sizeof(struct file*)*PROCOFILENUM);
+	task[0]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
+	task[0]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	memcpy(task[0]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
+
+	create_mapping(task[0]->mm->pagetable, 0, idle, PAGE_SIZE, PTE_R|PTE_X|PTE_U);
+	create_mapping(task[0]->mm->pagetable, (USER_END-PAGE_SIZE), K_VA2PA((uint64)kmalloc(PAGE_SIZE)), PAGE_SIZE, PTE_R|PTE_W|PTE_U);
+
+	/* FS */
+	procfile_init(task[0]);
 
 	for(int i=1;i<=LAB_TEST_NUM;i++){//init task[i]
 		task[i]=(struct task_struct*)(TASK_VM_START+i*TASK_SIZE);
@@ -96,8 +104,7 @@ void task_init(void){
 		task[i]->thread.sp=(unsigned long long)USER_END;
 		task[i]->thread.ra=(unsigned long long)&first_switch_to;
 
-		task[i]->cwd = ename("/");
-		memset(task[i]->FTable, 0, sizeof(struct file*)*PROCOFILENUM);
+		procfile_init(task[i]);
 
 		printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
@@ -114,6 +121,7 @@ void do_timer(int64 sstatus){
 	if(!current->pid||current->counter<=0||--current->counter<=0){
 		schedule();
 	}
+
 #endif
 #ifdef PRIORITY
 	if(current->pid!=0&&(current->counter<=0||--current->counter<=0)){
@@ -158,7 +166,7 @@ void schedule(void){
 	}
 	if(c>0)break;
 #endif
-	if(current!=task[next]) printf("[!] Switch from task %d [task struct: %p, sp: %p] to task %d [task struct: %p, sp: %p], prio: %d, counter: %d\n",current->pid,(uint64)current,current->thread.sp,task[next]->pid,(uint64)task[next],task[next]->thread.sp,task[next]->priority, task[next]->counter);
+	if(current!=task[next]) printf("[!] Switch from task %d to task %d, prio: %d, counter: %d\n",current->pid,task[next]->pid,task[next]->priority, task[next]->counter);
 
 #ifdef PRIORITY
 	printf("task's priority changed\n");
@@ -167,14 +175,13 @@ void schedule(void){
 		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 #endif
-	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)task[next]->mm->pagetable>>12)));
-	asm volatile("sfence.vma");
-	//spipe_test();
 	switch_to(task[next]);
 }
 
 void switch_to(struct task_struct* next){
 	if(current==next) return;
+	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)next->mm->pagetable>>12)));
+	asm volatile("sfence.vma");
 	__switch_to(&current, &next);
 }
 
@@ -190,14 +197,7 @@ void task_test(void){
 	register uint64 a3 asm("a2") = _a3;
 	register uint64 a4 asm("a2") = _a4;
 	register long syscall_id asm("a7") = 220;
-	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
-	a0 = _a0;
-	a1 = _a1;
-	a2 = _a2;
-	a3 = _a3;
-	a4 = _a4;
-	syscall_id = 220;
-	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
+	// asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
 	char a[6];
 	a[0]='h';
 	a[1]='e';
@@ -214,6 +214,7 @@ void task_test(void){
 	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
 	// fat_init();
 	// btest();
+	// test_sdcard();
 	while(1);
 }
 
@@ -288,9 +289,11 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 	memcpy((void*)task[child]->allocated_stack, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE);
 
 	task[child]->thread.ra=(unsigned long long)&forket;
-	uint64 sepc1;
-	r_csr(sepc, sepc1);
-	task[child]->thread.sepc= (sepc1 + 4);
+	uint64 sepc;
+	r_csr(sepc, sepc);
+	task[child]->thread.sepc= (sepc + 4);
+
+	procfile_init(task[child]);
 
 	printf("[clone PID = %d] Process fork from [PID = %d] Successfully! counter = %d\n",task[child]->pid,current->pid,task[child]->counter);
 	return task[child]->pid;
@@ -346,52 +349,49 @@ int exec(const char *path, char *const argv[], char *const envp[])
 	pagetable_t pagetable=NULL, oldpagetable;
 	int i, off;
 
-	if ((pagetable = (pagetable_t)kmalloc(PAGE_SIZE)) == NULL)
+	if ((pagetable = (pagetable_t)K_VA2PA((uint64)kmalloc(PAGE_SIZE))) == NULL)
 	{
 		return -1;
 	}
+	memset(pagetable, 0, PAGE_SIZE);
 	memcpy((void *)pagetable, (void *)kernel_pagetable, PAGE_SIZE);
 	if ((inode = ename(_path)) == NULL)
 		goto fail;
-	printf("1");
 	if (eread(inode, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
 		goto fail;
 	if (elf.magic != ELF_MAGIC)
 		goto fail;
-	printf("2");
-
+	printf("phnum:%d entry:%p, phoff:%p\n", elf.phnum, elf.entry, elf.phoff);
 	//load program
 	for (i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph))
 	{
-	printf("3");
 		if ((eread(inode, (uint64)&ph, off, sizeof(ph))) != sizeof(ph))
 			goto fail;
 		if (parse_ph_flags(&ph)==1)
 			goto fail;
 		uint64 va = kmalloc(ph.memsz);
-		if (kwalkaddr(pagetable, ph.vaddr))
-			create_mapping(pagetable, ph.vaddr, K_VA2PA(va), ph.memsz, ph.flags|PTE_U);
-		else
-			goto fail;
+		printf("[!!]vaddr:%p, memsz:%p, flag:%p\n\n", ph.vaddr, ph.memsz, ph.flags|PTE_U|PTE_X);
+		create_mapping(pagetable, ph.vaddr, K_VA2PA((uint64)kmalloc(ph.memsz)), ph.memsz, (ph.flags)|PTE_U|PTE_X);
 		if (ph.vaddr % PAGE_SIZE != 0)
 			goto fail;
 		if (loadseg(pagetable, ph.vaddr, inode, ph.off, ph.filesz) < 0)
 			goto fail;
 	}
-	printf("4");
-	create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
-	asm(
-		"li t0, 0x100;\
-		 csrc sstatus, t0;\
-		 li t0, 0x40002;\
-		 csrs sstatus, t0;"
-	);
-
+	create_mapping(pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+	
+	c_csr(sstatus, 0x100);
+	s_csr(sstatus, 0x40002);
+	w_csr(sscratch, USER_END);
+	printf("1\n");
 	current->mm->pagetable = pagetable;
 	current->thread.sscratch = USER_END;
 	current->thread.sepc = elf.entry;
-	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)current->mm->pagetable>>12)));
+	w_csr(sepc, elf.entry);
+	printf("2\n");
+	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)pagetable>>12)));
+	printf("3\n");
 	asm volatile("sfence.vma");
+	printf("4\n");
 	return 0;
 
 fail:
@@ -400,6 +400,19 @@ fail:
 	#endif
 	kfree(pagetable);
 	return -1;
+}
+
+// Copy to either a user address, or kernel address,
+// depending on usr_dst.
+// Returns 0 on success, -1 on error.
+int either_copy(int user, void* dst, void *src, uint64 len){
+	if(user){
+	// return copyout(p->pagetable, dst, src, len);
+	// return copyout2(dst, src, len);
+	} else {
+		memcpy(dst, src, len);
+		return 0;
+	}
 }
 
 /* 返回当前进程的pid*/

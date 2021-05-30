@@ -114,8 +114,8 @@ sret
 .global env_init
 .type env_init, @function
 env_init:
-	# set sstatus[sie] = 1, sstatus[ssie], sstatus[spp] = 1 sstatus[sum] = 1
-	li t0, 0x40122
+	# set sstatus[sie] = 1, sstatus[ssie], sstatus[spp] = 0 sstatus[sum] = 1
+	li t0, 0x40022
 	csrs sstatus, t0
 
 	# set sie[ssie], sie[stie] = 1, sie[seie] = 1
@@ -130,6 +130,12 @@ ret
 .global idle
 .type idle, @function
 idle:
+    la t1, loop
+    li t0, 0xFFF
+    and t0, t1, t0
+    csrw sepc, t0
+    sret
+loop:
 	wfi
-	j idle
+	j loop
 ret
