@@ -37,6 +37,7 @@ void task_init(void){
 	task[0]->stack = (uint64)kmalloc(sizeof(STACK_SIZE));
 	task[0]->xstate=-1;
 	task[0]->chan=0;
+	task[0]->size=0x1000;
 
 	/* 新增-wdl */
 	task[0]->utime=0;
@@ -65,6 +66,7 @@ void task_init(void){
 		task[i]->blocked=0;
 		task[i]->pid=i;
 		task[i]->ppid=0;
+		task[i]->size=0x1000;
 
 		task[i]->stack = (uint64)kmalloc(STACK_SIZE);
 
@@ -78,23 +80,17 @@ void task_init(void){
 		initlock(&(task[i]->lk), "proc");
 
 		task[i]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-		// task[i]->mm->pagetable_address = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-		// memcpy(task[i]->mm->pagetable_address, kernel_pagetable, PAGE_SIZE);
 		task[i]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
 		printf("stack:%p, pgtbl:%p, ker:%p\n", task[i]->stack,task[i]->mm->pagetable, kernel_pagetable);
 		memset(task[i]->mm->pagetable, 0, PAGE_SIZE);
-		// memset(task[i]->mm->kpagetable, 0, PAGE_SIZE);
 
 		memcpy(task[i]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
-		// memcpy(task[i]->mm->kpagetable, kernel_pagetable, PAGE_SIZE);
 
 		do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
 		do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
 		
 		create_mapping(task[i]->mm->pagetable, 0, task_test, TASK_SIZE*2, PTE_R|PTE_W|PTE_X|PTE_U);
 		create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
-		// create_mapping(task[i]->mm->kpagetable, 0, task_test, TASK_SIZE, PTE_R|PTE_W|PTE_X);
-		// create_mapping(task[i]->mm->kpagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W);
 
 		task[i]->thread.sscratch = (void*)task[i]+PAGE_SIZE;
 		task[i]->xstate=-1;
@@ -185,35 +181,6 @@ void switch_to(struct task_struct* next){
 }
 
 void task_test(void){
-	uint64 _a0 = 0;
-	uint64 _a1 = 0;
-	uint64 _a2 = 0;
-	uint64 _a3 = 0;
-	uint64 _a4 = 0;
-	register uint64 a0 asm("a0") = _a0;
-	register uint64 a1 asm("a1") = _a1;
-	register uint64 a2 asm("a2") = _a2;
-	register uint64 a3 asm("a2") = _a3;
-	register uint64 a4 asm("a2") = _a4;
-	register long syscall_id asm("a7") = 220;
-	// asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
-	char a[6];
-	a[0]='h';
-	a[1]='e';
-	a[2]='l';
-	a[3]='l';
-	a[4]='o';
-	a[5]='\0';
-	a0 = a;
-	a1 = _a1;
-	a2 = _a2;
-	a3 = _a3;
-	a4 = _a4;
-	syscall_id = 221;
-	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(syscall_id));
-	// fat_init();
-	// btest();
-	// test_sdcard();
 	while(1);
 }
 
@@ -320,11 +287,6 @@ int loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset, uin
 	}
 
 	return 0;
-    // check whether va is aligned to PAGE_SIZE;
-    // for(i=0; i<filesz; i+=PAGE_SIZE) {
-    //     walk the pagetable, get the corresponding pa of va;
-    //     use readi() to read the content of segment to address pa;
-    // }
 }
 
 int parse_ph_flags(struct proghdr* ph)
@@ -398,6 +360,8 @@ fail:
 	kfree(pagetable);
 	return -1;
 }
+
+
 
 // Copy to either a user address, or kernel address,
 // depending on usr_dst.
@@ -489,6 +453,36 @@ void wakeup(void *chan)
 	}
 }
 
+/**
+ * @brief 按照size扩展进程的内存大小
+ * 
+ * @return 修改成功则返回新的size，否则返回-1 
+ */
+int growtask(uint size){
+	acquire(&current->lk);
+	int oldsz = current->size;
+	int newsz = current->size + size;
+	if(newsz > oldsz){
+		for(newsz = PAGE_ROUNDUP(newsz);oldsz<newsz;oldsz+=PAGE_SIZE){
+			void *mem = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+			if(!mem) return -1; // alloc fail
+			create_mapping(current->mm->pagetable, oldsz, mem, PAGE_SIZE, PTE_R|PTE_W|PTE_U);
+		}
+	}else if(newsz < oldsz){
+		for(newsz = PAGE_ROUNDUP(newsz);oldsz>newsz;oldsz-=PAGE_SIZE){
+			kfree(oldsz-PAGE_SIZE);
+			delete_mapping(current->mm->pagetable, oldsz-PAGE_SIZE, PAGE_SIZE);
+		}
+	}
+	release(&current->lk);
+	return 0;
+}
+
+uint64 brk(int64 addr) {
+  if (addr <= 0) return current->size;
+  if(growtask(addr - current->size)==-1) return -1;
+  return current->size;
+}
 
 /* 等待某一/任意子进程改变状态 */
 long wait(long pid, long* status, long options)

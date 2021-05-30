@@ -6,7 +6,7 @@
 #include "vm.h"
 
 #define TASK_SIZE   (4096)
-#define THREAD_OFFSET  (7 * 0x08)
+#define THREAD_OFFSET  (8 * 0x08)
 
 #ifndef __ASSEMBLER__
 
@@ -24,7 +24,7 @@
 #define PREEMPT_ENABLE  0
 #define PREEMPT_DISABLE 1
 
-/* Lab3中进程的数量以及每个进程初始的时间片 */
+/* Lab3中进程的数量 */
 #define LAB_TEST_NUM        1
 
 /* wait的option */
@@ -91,6 +91,7 @@ struct task_struct {
     long pid;      // 进程标识符
     long ppid;
     long xstate;
+    long size;
     struct thread_struct thread; // 该进程状态段
 
     pid_t tid;

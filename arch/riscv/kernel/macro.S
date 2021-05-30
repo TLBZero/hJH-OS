@@ -1,4 +1,4 @@
-.equ THREAD_OFFSET, 56
+.equ THREAD_OFFSET, 64
 
 .macro save_all
     addi sp, sp, -272

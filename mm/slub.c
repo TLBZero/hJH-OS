@@ -338,7 +338,7 @@ kmem_cache_free(void *obj)
 void *kmalloc(size_t size)
 {
 	int objindex;
-	void *p;
+	void *p=0;
 	
 	if(size == 0) return NULL;
 

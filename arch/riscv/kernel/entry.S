@@ -3,8 +3,6 @@
 .align 2
 .global trap_s
 
-.equ FRAMESIZE, 300
-
 trap_s:
 		csrrw sp, sscratch, sp
         save_all
