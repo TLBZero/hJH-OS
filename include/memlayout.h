@@ -9,7 +9,7 @@
  * 
  */
 #pragma once
-// #define QEMU
+//#define QEMU
 /**
  * @brief Some info about k210
  * 

@@ -6,7 +6,7 @@
 #include "spinlock.h"
 #include "system.h"
 #include "pipe.h"
-// #define DEBUG
+#define DEBUG
 
 struct devsw devsw[NDEV];
 struct file SysFTable[SYSOFILENUM];
@@ -513,6 +513,7 @@ int sys_write(uintptr_t *regs){
     int fd=regs[REG_A(0)];
     char* buf=(char *)regs[REG_A(1)];
     int count=regs[REG_A(2)];
+    printf("[sys_write]fd:%d, buf:%p, %s, count:%d\n", fd, buf, buf, regs);
     struct file* file = current->FTable[fd];
     return fwrite(file, buf, count);
 }
@@ -682,6 +683,6 @@ int sys_unlinkat(uintptr_t *regs){
 
 void sysfile_test(){
 
-    printf("[sysfile_test]test done!\n");
+    // printf("[sysfile_test]test done!\n");
     while(1);
 }

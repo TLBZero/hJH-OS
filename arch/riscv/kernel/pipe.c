@@ -157,22 +157,22 @@ int piperead(struct file *f, char *str, int n)
 
 void pipe_test()
 {
-    int _pipe[2];
-    int ret=pipealloc(_pipe,_pipe+1);	
-    if(ret<0)
-    {
-        printf("pipe error\n");
-    }
+    // int _pipe[2];
+    // int ret=pipealloc(_pipe,_pipe+1);	
+    // if(ret<0)
+    // {
+    //     printf("pipe error\n");
+    // }
 
-    char mesg1[100];
-    char *mesg2;
-    mesg2="ABCDEF";
-    //pipeclose(&SysFTable[_pipe[1]]);
-    printf("1:%d\n",pipewrite(&SysFTable[_pipe[1]],mesg2,7));
-    printf("2:%d\n",piperead(&SysFTable[_pipe[0]],mesg1,7));
+    // char mesg1[100];
+    // char *mesg2;
+    // mesg2="ABCDEF";
+    // //pipeclose(&SysFTable[_pipe[1]]);
+    // printf("1:%d\n",pipewrite(&SysFTable[_pipe[1]],mesg2,7));
+    // printf("2:%d\n",piperead(&SysFTable[_pipe[0]],mesg1,7));
 
-	printf("%s\n",mesg1);
+	// printf("%s\n",mesg1);
 
-    while(1);
+    // while(1);
 }
 

@@ -5,7 +5,6 @@
 #include "sdcard.h"
 #include "sleeplock.h"
 #include "disk.h"
-//#define DEBUG
 
 struct buffer_head buf[BUFNR + 1]; // buf[0] acts as head
 static struct buffer_head *free_list;
@@ -40,6 +39,14 @@ void binit(void)
 #endif
 }
 
+
+/**
+ * @brief 获取空闲的buffer
+ * 
+ * @param dev 设备号
+ * @param block 块号
+ * @return 返回空闲的buffer，否则返回NULL
+ */
 static struct buffer_head *getblk(int dev, int block)
 {
     struct buffer_head *bh;
@@ -153,7 +160,6 @@ void brelse(struct buffer_head *bh)
 
 void btest()
 {
-
     // static int xxx = 0;
     // struct buffer_head* bh;
     // if(getpid()==1){

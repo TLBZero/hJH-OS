@@ -15,17 +15,21 @@
 #include "elf.h"
 #include "sysfile.h"
 
-#define DEBUG
 struct task_struct* current;
+struct task_struct* nextTask;
 struct task_struct* task[NR_TASKS];
 
 long sec,nsec,flag;  //nanosleep所需参数
+static int fs_init = 0;
 
 extern void __switch_to(unsigned long long, unsigned long long);
-extern void first_switch_to();
 extern void idle();
+void first_switch_to();
 extern uint64 kwalkaddr(pagetable_t kpt, uint64 va);
 
+/**
+ * @brief 初始化进程0
+ */
 void task_init(void){
 	task[0]=current=(struct task_struct*)TASK_VM_START;		//Task0 Base
 	task[0]->state=TASK_READY;
@@ -46,14 +50,14 @@ void task_init(void){
     task[0]->cstime=0;
 
 	initlock(&(task[0]->lk), "proc");
-	task[0]->thread.sp=USER_END;	//Task0 Base + 4kb
+	task[0]->thread.sp=USER_END;
 	task[0]->thread.sscratch = (void*)task[0]+PAGE_SIZE;
 
 	task[0]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
 	task[0]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
 	memcpy(task[0]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
 
-	create_mapping(task[0]->mm->pagetable, 0, idle, PAGE_SIZE, PTE_R|PTE_X|PTE_U);
+	uvmap(task[0], idle, PAGE_SIZE, 0);
 	create_mapping(task[0]->mm->pagetable, (USER_END-PAGE_SIZE), K_VA2PA((uint64)kmalloc(PAGE_SIZE)), PAGE_SIZE, PTE_R|PTE_W|PTE_U);
 
 	/* FS */
@@ -61,52 +65,60 @@ void task_init(void){
 
 	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)current->mm->pagetable>>12)));
 	asm volatile("sfence.vma");
-
-	for(int i=1;i<=LAB_TEST_NUM;i++){//init task[i]
-		task[i]=(struct task_struct*)(TASK_VM_START+i*TASK_SIZE);
-		task[i]->state=TASK_READY;
-		task[i]->counter=rand();
-		task[i]->priority=5;
-		task[i]->blocked=0;
-		task[i]->pid=i;
-		task[i]->ppid=0;
-		task[i]->size=0x1000;
-
-		task[i]->stack = (uint64)kmalloc(STACK_SIZE);
-		/* 新增-wdl */
-		task[i]->xstate=-1;
-		task[i]->chan=0;
-		task[i]->utime=0;
-    	task[i]->stime=0;
-    	task[i]->cutime=0;
-    	task[i]->cstime=0;
-		initlock(&(task[i]->lk), "proc");
-
-		task[i]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-		task[i]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
-		printf("stack:%p, pgtbl:%p, ker:%p\n", task[i]->stack,task[i]->mm->pagetable, kernel_pagetable);
-		memset(task[i]->mm->pagetable, 0, PAGE_SIZE);
-		memcpy(task[i]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
-
-		do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
-		do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
-
-		create_mapping(task[i]->mm->pagetable, 0, task_test, TASK_SIZE*2, PTE_R|PTE_W|PTE_X|PTE_U);
-		create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
-
-		task[i]->thread.sscratch = (void*)task[i]+PAGE_SIZE;
-		task[i]->xstate=-1;
-		task[i]->chan=0;
-		initlock(&(task[i]->lk), "proc");
-		task[i]->thread.sp=(unsigned long long)USER_END;
-		task[i]->thread.ra=(unsigned long long)&first_switch_to;
-
-		procfile_init(task[i]);
-
-		printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
-	}
 }
 
+/**
+ * @brief 新建一个进程，其父进程是0
+ * 
+ * @return 新建成功则返回PCB，否则返回NULL
+ */
+struct task_struct* taskAlloc(){
+	int pid = alloc_pid();
+	if(pid<=0) return NULL;
+
+	task[pid]=(struct task_struct*)(TASK_VM_START+pid*TASK_SIZE);
+	task[pid]->state=TASK_READY;
+	task[pid]->counter=rand();
+	task[pid]->priority=5;
+	task[pid]->blocked=0;
+	task[pid]->pid=pid;
+	task[pid]->ppid=0;
+
+	task[pid]->stack = (uint64)kmalloc(STACK_SIZE);
+	/* 新增-wdl */
+	task[pid]->xstate=-1;
+	task[pid]->chan=0;
+	task[pid]->utime=0;
+	task[pid]->stime=0;
+	task[pid]->cutime=0;
+	task[pid]->cstime=0;
+	initlock(&(task[pid]->lk), "proc");
+
+	task[pid]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
+	task[pid]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	memset(task[pid]->mm->pagetable, 0, PAGE_SIZE);
+	memcpy(task[pid]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
+
+	do_mmap(task[pid]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
+	create_mapping(task[pid]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+
+	task[pid]->xstate=-1;
+	task[pid]->chan=0;
+	initlock(&(task[pid]->lk), "proc");
+	task[pid]->thread.sp=(unsigned long long)USER_END;
+	task[pid]->thread.ra=(unsigned long long)&first_switch_to;
+	task[pid]->thread.sscratch = (void*)task[pid]+PAGE_SIZE;
+
+	procfile_init(task[pid]);
+
+	printf("[PID = %d] Process Create Successfully! counter = %d priority = %d\n",task[pid]->pid, task[pid]->counter, task[pid]->priority);
+	return task[pid];
+}
+
+/**
+ * @brief 时钟中断
+ * 
+ */
 void do_timer(int64 sstatus){
 	timer_tick();
 
@@ -129,6 +141,10 @@ void do_timer(int64 sstatus){
 #endif
 }
 
+/**
+ * @brief 作为scheduler
+ * 
+ */
 void schedule(void){
 	int i, c, next,prio;
 	struct task_struct **p;
@@ -172,28 +188,86 @@ void schedule(void){
 		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
 	}
 #endif
-	switch_to(task[next]);
+	nextTask = task[next];
+	switch_to();
 }
 
-void switch_to(struct task_struct* next){
-	if(current==next) return;
-	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)next->mm->pagetable>>12)));
+/**
+ * @brief 切换到nextTask指定的地方
+ * 
+ */
+void switch_to(){
+	if(current==nextTask) return;
+	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)nextTask->mm->pagetable>>12)));
 	asm volatile("sfence.vma");
-	__switch_to(&current, &next);
+	__switch_to(&current, &nextTask);
 }
 
-void task_test(void){
+void first_switch_to(){
+	printf("first_switch_to\n");
+	if(!fs_init){
+		fs_init = 1;
+		fat_init();
+	}
+	asm("li t0, 0x100;\
+		 csrc sstatus, t0;\
+		 li t0, 0x40002;\
+		 csrs sstatus, t0;\
+		 csrw sepc, x0;\
+		 sret");
+}
+
+
+void task_test(){
+	// uint64 _a0 = 1;
+	// uint64 _a1 = 0;
+	// uint64 _a2 = 0;
+	// uint64 _a3 = 0;
+	// uint64 _a4 = 0;
+	// register uint64 a0 asm("a0") = _a0;
+	// register uint64 a1 asm("a1") = _a1;
+	// register uint64 a2 asm("a2") = _a2;
+	// register uint64 a3 asm("a2") = _a3;
+	// register uint64 a4 asm("a2") = _a4;
+	// register long syscall_id asm("a7") = 64;
+	// char a[7];
+	// a[0]='h';
+	// a[1]='e';
+	// a[2]='l';
+	// a[3]='l';
+	// a[4]='o';
+	// a[5]='\0';
+	// a[6]='\0';
+	// a0 = 1;
+	// a1 = a;
+	// a2 = 8;
+	// a3 = _a3;
+	// a4 = _a4;
+	// syscall_id = 64;
+	// asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
+	// fat_init();
+	// btest();
 	// test_sdcard();
 	while(1);
 }
 
-uint64 alloc_pid()
+/**
+ * @brief 初始化用户态
+ */
+void user_init(){
+	struct task_struct* task = taskAlloc();
+	if(!task) panic("[user_init]user init fail!");
+
+	uvmap(task, task_test, PAGE_SIZE, 0);
+	return;
+}
+
+int alloc_pid()
 {
-	// static uint64 currentPID = LAB_TEST_NUM;
-	// return ++currentPID;
 	for (int i=1; i<NR_TASKS; i++)
 		if (task[i]==NULL)
 			return i;
+	return -1;
 }
 
 void forket(){
@@ -260,7 +334,6 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 	task[child]->thread.ra=(unsigned long long)&forket;
 	uint64 sepc;
 	r_csr(sepc, sepc);
-	printf("sepc:%p\n", sepc);
 	task[child]->thread.sepc= (sepc + 4);
 
 	procfile_init(task[child]);
@@ -306,7 +379,6 @@ int parse_ph_flags(struct proghdr* ph)
 
 int exec(const char *path, char *const argv[], char *const envp[])
 {
-	printf("path:%s, addr:%p\n", path, path);
 	char _path[FAT32_MAX_PATH];
 	strcpy(_path, path);
 	struct dirent* inode;
@@ -327,7 +399,6 @@ int exec(const char *path, char *const argv[], char *const envp[])
 		goto fail;
 	if (elf.magic != ELF_MAGIC)
 		goto fail;
-	printf("phnum:%d entry:%p, phoff:%p\n", elf.phnum, elf.entry, elf.phoff);
 	//load program
 	for (i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph))
 	{
@@ -336,7 +407,7 @@ int exec(const char *path, char *const argv[], char *const envp[])
 		if (parse_ph_flags(&ph)==1)
 			goto fail;
 		uint64 va = kmalloc(ph.memsz);
-		printf("[!!]vaddr:%p, memsz:%p, flag:%p\n\n", ph.vaddr, ph.memsz, ph.flags|PTE_U|PTE_X);
+
 		create_mapping(pagetable, ph.vaddr, K_VA2PA((uint64)kmalloc(ph.memsz)), ph.memsz, (ph.flags)|PTE_U|PTE_X);
 		if (ph.vaddr % PAGE_SIZE != 0)
 			goto fail;
@@ -481,9 +552,9 @@ int growtask(uint size){
 }
 
 long brk(int64 addr) {
-  if (addr <= 0) return current->size;
-  if(growtask(addr - current->size)==-1) return -1;
-  return current->size;
+	if (addr <= 0) return current->size;
+	if(growtask(addr - current->size)==-1) return -1;
+	return current->size;
 }
 
 /* 等待某一/任意子进程改变状态 */

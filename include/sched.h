@@ -25,7 +25,7 @@
 #define PREEMPT_DISABLE 1
 
 /* Lab3中进程的数量 */
-#define LAB_TEST_NUM    1
+#define LAB_TEST_NUM    0
 
 /* wait的option */
 #define WNOHANG       0
@@ -122,7 +122,7 @@ void do_timer(int64);
 void schedule(void);
 
 /* 切换当前任务current到下一个任务next */
-void switch_to(struct task_struct* next);
+void switch_to();
 
 /* 测试 */
 void task_test(void);

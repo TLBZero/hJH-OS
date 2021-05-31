@@ -21,6 +21,10 @@ typedef unsigned long   size_t;
 typedef unsigned long   __off_t;
 typedef int pgprot_t;
 
+typedef uint64* pagetable_t;
+typedef uint64 pde_t;
+typedef uint64 pte_t;
+
 typedef int     pid_t;
 typedef int64   off_t;
 

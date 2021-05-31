@@ -9,8 +9,7 @@
 #include "dmac.h"
 #else
 #include "virtio.h"
-#endif 
-#define DEBUG
+#endif
 
 void disk_init(void)
 {

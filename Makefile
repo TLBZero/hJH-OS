@@ -35,6 +35,10 @@ CF += $(INCLUDE)
 CF += -march=$(ISA) -mabi=$(ABI) 
 CFLAG = ${CF} ${INCLUDE} -DSJF
 
+ifeq ($(MODE), debug)
+CFLAG += -DDEBUG
+endif
+
 ifeq ($(PLATFORM), k210)
 RUSTSBI = ./bootloader/rustsbi-k210.bin
 KSTART = 131072

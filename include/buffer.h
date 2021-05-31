@@ -1,14 +1,3 @@
-/**
- * @file buffer.h
- * @author hJH-Yin
- * @brief buffer for fs usage
- * @version 0.1
- * @date 2021-05-12
- * 
- * @copyright Copyright (c) 2021
- * 
- */
-
 #pragma once
 #include "types.h"
 #include "sleeplock.h"

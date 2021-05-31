@@ -23,10 +23,10 @@ void dumpInfo(){
 	printf("[threadInfo]\nra:%p\nsp:%p\n", current->thread.sp, current->thread.ra);
 	printf("[procInfo]\nra:%p, sp:%p\n", current->thread.sp, current->thread.ra);
 }
-int tmp;
+
 void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 	memcpy(current->stack, regs, STACK_SIZE);
-	dumpInfo();
+	// dumpInfo();
 	if(scause>=0){//exception
 		#ifdef DEBUG
 		printf("[strap_handler]Get into EXP\n");

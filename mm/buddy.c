@@ -3,7 +3,7 @@
 #include "memlayout.h"
 struct buddy Buddy;
 unsigned buddy_bitmap[BUDDY_BITMAP_SIZE];
-// #define DEBUG
+
 /**
  * @brief Initialize buddy system
  */

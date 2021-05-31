@@ -1,5 +1,4 @@
-#ifndef VM_H
-#define VM_H
+#pragma once
 // #define DEBUG
 #include "slub.h"
 #include "buddy.h"
@@ -47,20 +46,16 @@
 
 #define SV39 (8L<<60)
 
-typedef uint64* pagetable_t;//2-level table
-typedef uint64 pde_t;       //1-level table
-typedef uint64 pte_t;       //0-level table
-
 void paging_init();
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm);
 void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz);
 pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc);
+uint64 kwalkaddr(pagetable_t kpt, uint64 va);;
 
-// void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot);
+// int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned);
 int munmap(void *start, size_t len);
 void *mmap(void *start, size_t len, int prot, int flags,
                   int fd, off_t off);
-uint64 uvmalloc(pagetable_t pagetable, pagetable_t kpagetable, uint64 oldsz, uint64 newsz);
 
 extern pagetable_t kernel_pagetable;
 
@@ -75,4 +70,3 @@ extern char data_end[];
 extern char bss_start[];
 extern char bss_end[];
 extern char _end[];
-#endif

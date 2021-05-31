@@ -43,6 +43,7 @@ static uint getClusCnt(uint32 firstClus);
  * @return 0 for success and -1 for errors
  */
 int fat_init(){
+    printf("get into fat_init\n");
     struct buffer_head *bh = bread(0, 0);
     if (strncmp((char const*)(bh->buf + 82), "FAT32", 5))
         panic("fat_init error, not FAT32!");
@@ -1095,15 +1096,15 @@ void fat_test(){
     // printf("%s\n", fileContent);
     // eput(ep);
 
-    printf("fat_test!");
-    struct dirent* ep = ename("hello.bin");
-    printf("%s, %d, %d", ep->filename, ep->first_clus, ep->clus_cnt);
-    char buf[1000];
-    eread(ep, buf, 0, 1000);
-    for(int i=1;i<=1000;i++){
-        printf("%x", buf[i-1]);
-        if(i%16==0) printf("\n");
-    }
-    printf("[fat_test]done!\n");
-    while(1);
+    // printf("fat_test!");
+    // struct dirent* ep = ename("hello.bin");
+    // printf("%s, %d, %d", ep->filename, ep->first_clus, ep->clus_cnt);
+    // char buf[1000];
+    // eread(ep, buf, 0, 1000);
+    // for(int i=1;i<=1000;i++){
+    //     printf("%x", buf[i-1]);
+    //     if(i%16==0) printf("\n");
+    // }
+    // printf("[fat_test]done!\n");
+    // while(1);
 }

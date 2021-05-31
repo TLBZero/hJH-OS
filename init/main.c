@@ -36,6 +36,7 @@ void start_kernel(unsigned long hartid)
 		binit();
 		sysfile_init();
 		timer_init();
+		user_init();
 		__sync_synchronize();
 		started = 1;
 		idle();

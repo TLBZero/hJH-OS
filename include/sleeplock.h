@@ -1,7 +1,5 @@
+#pragma once
 #include "spinlock.h"
-
-#ifndef __SLEEPLOCK_H
-#define __SLEEPLOCK_H
 
 struct spinlock;
 
@@ -18,5 +16,3 @@ void acquiresleep(struct sleeplock*);
 void releasesleep(struct sleeplock*);
 int holdingsleep(struct sleeplock*);
 void initsleeplock(struct sleeplock*, char*);
-
-#endif

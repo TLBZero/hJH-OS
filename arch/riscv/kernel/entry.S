@@ -55,19 +55,16 @@ __switch_to:
         sd      t0, 0(a0)
 ret
 
-.global first_switch_to
-.type first_switch_to, @function
-.extern task_test
-first_switch_to:
-	li t0, 0x100
-	csrc sstatus, t0
-	li t0, 0x40002
-	csrs sstatus, t0
-	la t0, task_test
-	li t1, 0xFFF
-	and t0, t0, t1
-	csrw sepc, t0
-sret
+# .global first_switch_to
+# .type first_switch_to, @function
+# .extern task_test
+# first_switch_to:
+# 	li t0, 0x100
+# 	csrc sstatus, t0
+# 	li t0, 0x40002
+# 	csrs sstatus, t0
+# 	csrw sepc, x0
+# sret
 
 .global ret_from_fork
 .type ret_from_fork, @function
@@ -134,9 +131,10 @@ ret
 .global idle
 .type idle, @function
 idle:
-    la t1, loop
-    li t0, 0xFFF
-    and t0, t1, t0
+    li sp, TASK_SP
+    li t0, TASK_SSCRATCH
+    csrw sscratch, t0
+    addi t0, x0, 0x24
     csrw sepc, t0
     sret
 loop:

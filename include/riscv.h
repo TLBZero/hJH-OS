@@ -49,8 +49,8 @@
 /* Stack Struct */
 #define REG_X(num) (num)
 #define REG_A(num) (9+(num))
-#define SSTATUS 0
 #define SSCRATCH 33
+#define SSTATUS 32
 #define SEPC 31
 /* Operations on memory */
 #define readb(addr) (*(volatile uint8 *)(addr))

@@ -27,19 +27,24 @@ pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc){
     return &pagetable[PX(0,va)];
 }
 
+/**
+ * @brief 模拟MMU走pagetable
+ * 
+ * @param kpt pagetable
+ * @param va 虚拟地址
+ * @return 解析出来的虚拟地址
+ */
 uint64 kwalkaddr(pagetable_t kpt, uint64 va)
 {
-  uint64 off = va % PAGE_SIZE;
-  pte_t *pte;
-  uint64 pa;
-  
-  pte = walk(kpt, va, 0);
-  if(pte == 0)
-    panic("kvmpa");
-  if((*pte & PTE_V) == 0)
-    panic("kvmpa");
-  pa = PTE2PA(*pte);
-  return pa+off;
+    uint64 off = va % PAGE_SIZE;
+    pte_t *pte;
+    uint64 pa;
+
+    pte = walk(kpt, va, 0);
+    if(pte == 0) panic("kvmpa");
+    if((*pte & PTE_V) == 0) panic("kvmpa");
+    pa = PTE2PA(*pte);
+    return pa+off;
 }
 
 /**
@@ -50,8 +55,6 @@ uint64 kwalkaddr(pagetable_t kpt, uint64 va)
  * @param perm: permission bits
  */
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
-    //do some align
-    // printf("pgtbl:%p, va:%p, pa:%p\n", pgtbl, va, pa);
     if(sz==0) return;
     uint64 pgStart = PAGE_ROUNDDOWN(va);
     uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
@@ -154,7 +157,9 @@ void paging_init(){
     asm volatile("sfence.vma");
 
     slub_init();
+    #ifdef DEBUG
     printf("[vm]paging init donw!\n");
+    #endif
     return;
 }
 
@@ -198,7 +203,7 @@ void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
         newVMA->vm_prev=newVMA;
         newVMA->vm_next=newVMA;
     }
-    printf("[S] New vm_area_struct: start %p, end %p, prot [r:%d,w:%d,x:%d]\n",newVMA->vm_start, newVMA->vm_end, (prot&PROT_READ)!=0, (prot&PROT_WRITE)!=0, (prot&PROT_EXEC)!=0);
+    // printf("[S] New vm_area_struct: start %p, end %p, prot [r:%d,w:%d,x:%d]\n",newVMA->vm_start, newVMA->vm_end, (prot&PROT_READ)!=0, (prot&PROT_WRITE)!=0, (prot&PROT_EXEC)!=0);
     return astart;
 }
 
@@ -210,7 +215,6 @@ void *mmap(void *start, size_t len, int prot, int flags,
     }
     else 
     {
-        printf("====================================================================================\n");
         struct vm_area_struct* nvma = kmalloc(sizeof(struct vm_area_struct));
         nvma->vm_flags = flags;
         nvma->vm_page_prot = prot;
@@ -274,13 +278,28 @@ int munmap(void *start, size_t len)
 }
 
 /**
- * @brief allocate pages from oldpgtbl to newpgtbl
- * @param pagetable: pagetable
- * @param kpagetable: kernel pagetable
- * @param oldsz: old pagetable size
- * @param newsz: new pagetable size
+ * @brief 将给定src的用户进程映射到0处
+ * 
+ * @param utask 用户进程pcb
+ * @param src 指定的用户code
+ * @param size code的大小
+ * @param aligned 为了映射到地址0处，该code必须按页对其，如果不是aligned的，将重新分配内存并将user code复制过去后再映射；否则直接映射
+ * @return 成功则返回0，否则返回-1
  */
-uint64 uvmalloc(pagetable_t pagetable, pagetable_t kpagetable, uint64 oldsz, uint64 newsz)
-{
+int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned){
+    if(!utask||!size) return -1;
 
+    void* mem = 0;
+    if(!aligned){
+        mem = K_VA2PA((uint64)kmalloc(PAGE_ROUNDUP(size)));
+        memcpy(mem, src, size);
+    }else{
+        mem = kwalkaddr(utask->mm->pagetable, src);
+    }
+
+	do_mmap(utask->mm, 0, size, PROT_READ|PROT_WRITE|PROT_EXEC);
+    create_mapping(utask->mm->pagetable, 0, mem, size, PTE_R|PTE_W|PTE_X|PTE_U);
+    utask->size = size;
+    
+    return 0;
 }

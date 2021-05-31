@@ -1,4 +1,7 @@
 .equ THREAD_OFFSET, 64
+.equ TASK_SSCRATCH, 0xffffffe000101000
+#.equ TASK_SSCRATCH, 0xffffffe000301000
+.equ TASK_SP, 0xffffffdf80000000
 
 .macro save_all
     addi sp, sp, -272
