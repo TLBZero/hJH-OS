@@ -9,6 +9,7 @@
 #include "fat32.h"
 #include "sysfile.h"
 #include "console.h"
+#include "sdcard.h"
 volatile static int started = 0;
 extern void idle();
 static inline void inithartid(unsigned long hartid) {
@@ -33,13 +34,10 @@ void start_kernel(unsigned long hartid)
 		#endif 
 		disk_init();
 		binit();
-		fat_init();
 		sysfile_init();
 		timer_init();
 		__sync_synchronize();
 		started = 1;
-		asm volatile("csrw satp, %0"::"r"(SV39|((uint64)current->mm->pagetable>>12)));
-		asm volatile("sfence.vma");
 		idle();
 	}
 	else{

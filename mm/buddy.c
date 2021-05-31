@@ -3,7 +3,7 @@
 #include "memlayout.h"
 struct buddy Buddy;
 unsigned buddy_bitmap[BUDDY_BITMAP_SIZE];
-
+// #define DEBUG
 /**
  * @brief Initialize buddy system
  */
@@ -19,7 +19,7 @@ void init_buddy_system(void)
     for (uint size = Buddy.size, num = 1, i = 0; size > 0; size /= 2, num *= 2)
         for (int j = 0; j < num; j++)
             Buddy.bitmap[i++] = size;
-    alloc_pages(PAGENUM_ROUNDUP((void *)_end - (void *)SBIBASE));
+    alloc_pages(PAGENUM_ROUNDUP(KERNELSIZE));
     
     #ifdef DEBUG
     printf("[init_buddy_system]Buddy Init Down!\n", Buddy.size);

@@ -140,6 +140,5 @@ idle:
     csrw sepc, t0
     sret
 loop:
-	wfi
 	j loop
 ret

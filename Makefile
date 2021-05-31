@@ -23,11 +23,16 @@ QEMUOPTS += -bios $(RUSTSBI)
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
-ISA ?= rv64imafd
+ISA ?= rv64g
 ABI ?= lp64
 
 INCLUDE = -I ../include -I ../../../include
-CF = -g -march=$(ISA) -mabi=$(ABI) -mcmodel=medany -ffunction-sections -fdata-sections -nostartfiles -nostdlib -nostdinc -static -lgcc -Wl,--nmagic -Wl,--gcsections
+CF = -Wall -O -fno-omit-frame-pointer -ggdb -g
+CF += -MD
+CF += -mcmodel=medany
+CF += -ffreestanding -fno-common -nostdlib -mno-relax
+CF += $(INCLUDE)
+CF += -march=$(ISA) -mabi=$(ABI) 
 CFLAG = ${CF} ${INCLUDE} -DSJF
 
 ifeq ($(PLATFORM), k210)
@@ -36,7 +41,7 @@ KSTART = 131072
 LDSCRIPT = vmlinux.lds
 else
 RUSTSBI = ./bootloader/rustsbi-qemu.bin
-CFLAGS += -DQEMU
+CFLAG += -DQEMU
 LDSCRIPT = vmlinux-qemu.lds
 endif
 
@@ -48,6 +53,7 @@ vmlinux:
 	${MAKE} -C ./mm all
 	${MAKE} -C ./arch/riscv all
 
+binary:
 	cp $(RUSTSBI) ./hJHOS.bin
 	dd if=arch/riscv/boot/Image of=hJHOS.bin bs=$(KSTART) seek=1
 	@echo "\033[;31m _     \033[0m\033[;33m    ___ \033[0m\033[;34m  _   _  \033[0m"
@@ -77,4 +83,5 @@ qemu-debug:
 
 k210:
 	-make vmlinux
+	-make binary
 	kflash -B dan -t hJHOS.bin

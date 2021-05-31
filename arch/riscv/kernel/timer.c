@@ -4,7 +4,7 @@
 #include "spinlock.h"
 #include "timer.h"
 #include "put.h"
-
+#define DEBUG
 struct spinlock tickslock;
 uint ticks;
 
@@ -12,7 +12,7 @@ void timer_init() {
     initlock(&tickslock, "time");
     set_next_timeout();
     #ifdef DEBUG
-    printf("[timer_init]timerinit donw!\n");
+    printf("[timer_init]timerinit done!\n");
     #endif
 }
 

@@ -47,6 +47,7 @@ void task_init(void){
 
 	initlock(&(task[0]->lk), "proc");
 	task[0]->thread.sp=USER_END;	//Task0 Base + 4kb
+	task[0]->thread.sscratch = (void*)task[0]+PAGE_SIZE;
 
 	task[0]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
 	task[0]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
@@ -57,6 +58,9 @@ void task_init(void){
 
 	/* FS */
 	procfile_init(task[0]);
+
+	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)current->mm->pagetable>>12)));
+	asm volatile("sfence.vma");
 
 	for(int i=1;i<=LAB_TEST_NUM;i++){//init task[i]
 		task[i]=(struct task_struct*)(TASK_VM_START+i*TASK_SIZE);
@@ -69,7 +73,6 @@ void task_init(void){
 		task[i]->size=0x1000;
 
 		task[i]->stack = (uint64)kmalloc(STACK_SIZE);
-
 		/* 新增-wdl */
 		task[i]->xstate=-1;
 		task[i]->chan=0;
@@ -83,12 +86,11 @@ void task_init(void){
 		task[i]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
 		printf("stack:%p, pgtbl:%p, ker:%p\n", task[i]->stack,task[i]->mm->pagetable, kernel_pagetable);
 		memset(task[i]->mm->pagetable, 0, PAGE_SIZE);
-
 		memcpy(task[i]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
 
 		do_mmap(task[i]->mm, 0, PAGE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC);
 		do_mmap(task[i]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
-		
+
 		create_mapping(task[i]->mm->pagetable, 0, task_test, TASK_SIZE*2, PTE_R|PTE_W|PTE_X|PTE_U);
 		create_mapping(task[i]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
 
@@ -137,15 +139,15 @@ void schedule(void){
 	prio=-1;
 	p=&task[NR_TASKS];
 #ifdef SJF
+	for(int i=1;i<NR_TASKS;i++) if(task[i] && task[i]->state==TASK_READY&&task[i]->counter==0) {
+		task[i]->counter=rand();
+		printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
+	}
 	while(--i){
 		if(!*(--p)) continue;
 		if((*p)->state==TASK_READY&&(*p)->counter>0){
 			if(c<0||c>(*p)->counter) c=(*p)->counter,next=i;//if p is the first non-empty task or p's counter is smaller, then choose it.
 		}
-	}
-	for(int i=1;i<NR_TASKS;i++) if(task[i] && task[i]->state==TASK_READY&&task[i]->counter==0) {
-		task[i]->counter=rand();
-		printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
 	}
 
 #endif
@@ -159,7 +161,7 @@ void schedule(void){
 			}
 		}
 	}
-	if(c>0)break;
+	if(c>=0)break;
 #endif
 	if(current!=task[next]) printf("[!] Switch from task %d to task %d, prio: %d, counter: %d\n",current->pid,task[next]->pid,task[next]->priority, task[next]->counter);
 
@@ -181,6 +183,7 @@ void switch_to(struct task_struct* next){
 }
 
 void task_test(void){
+	// test_sdcard();
 	while(1);
 }
 
@@ -416,7 +419,6 @@ void exit(long status){
 
 void sleep(void *chan, struct spinlock *lk)
 {
-	if(current->pid == 0) return;
 	if(lk!=&current->lk)
 	{
 		acquire(&(current->lk));

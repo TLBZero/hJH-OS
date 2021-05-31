@@ -46,7 +46,7 @@
 #define SBISIZE         0x20000UL
 #define KERNELBASE      0x80020000UL
 #define KERNELEND       0x80200000UL
-#define KERNELSIZE      0x1FE000UL
+#define KERNELSIZE      0x200000UL
 #define MEM_END         0x80800000UL
 #define MEM_SIZE        (MEM_END-SBIBASE)
 #define TASK_VM_START   0xffffffe000100000L
@@ -55,7 +55,7 @@
 #define SBISIZE         0x200000UL
 #define KERNELBASE      0x80200000UL
 #define KERNELEND       0x80400000UL
-#define KERNELSIZE      0x200000UL
+#define KERNELSIZE      0x400000UL
 #define MEM_END         0x80800000UL
 #define MEM_SIZE        (MEM_END-SBIBASE)
 #define TASK_VM_START   0xffffffe000300000L

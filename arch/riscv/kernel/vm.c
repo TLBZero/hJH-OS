@@ -51,7 +51,7 @@ uint64 kwalkaddr(pagetable_t kpt, uint64 va)
  */
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
     //do some align
-    printf("pgtbl:%p, va:%p, pa:%p\n", pgtbl, va, pa);
+    // printf("pgtbl:%p, va:%p, pa:%p\n", pgtbl, va, pa);
     if(sz==0) return;
     uint64 pgStart = PAGE_ROUNDDOWN(va);
     uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
