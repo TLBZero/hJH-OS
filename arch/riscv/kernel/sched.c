@@ -605,8 +605,7 @@ long wait(long pid, long* status, long options)
 		int pid=task[i]->pid;
 		*status=task[i]->xstate;
 		//测试的时候没有加kfree
-		kfree(task[i]);
-		task[i]=0;
+		taskFree(i);
 		release(&(current->lk));
 		return pid;
 	}
@@ -649,8 +648,7 @@ long wait(long pid, long* status, long options)
 			current->cstime += task[pid]->stime;
 			*status=task[pid]->xstate;
 			//测试的时候没有加kfree
-			kfree(task[pid]);
-			task[pid]=0;
+			taskFree(pid);
 			release(&(current->lk));
 			return pid;
 		}
@@ -669,8 +667,11 @@ void yield()
 void nanosleep(struct timespec *req, struct timespec *rem)
 {
 	flag=current->pid;
-	sec=task[0]->stime+req->tv_sec;
-	nsec=task[0]->utime+req->tv_nsec;
+	uint64 time;
+    r_csr(time, time);
+	time*=1000;
+	sec=time/1000000000+req->tv_sec;
+	nsec=time%1000000000+req->tv_nsec;
 	current->state=TASK_SLEEPING;
 	if(rem!=0){
 		rem->tv_sec=0;
@@ -682,22 +683,32 @@ void nanosleep(struct timespec *req, struct timespec *rem)
 void time(int64 sstatus)
 {
 	sstatus&=0x100;
-	task[0]->stime++;     //秒
-	task[0]->utime+=10;   //纳秒
-	if(task[0]->utime==1000000000) 
-	{
-		task[0]->stime++;
-		task[0]->utime=0;
-	}
+	uint64 time;
+    r_csr(time, time);
+	time*=1000;
 	if(sstatus) current->stime++;
 	else current->utime++;
-
+	
 	if(flag!=0)
 	{
-		if(task[0]->stime > sec || sec==task[0]->stime && task[0]->utime >=nsec)
+		if(time/1000000000 > sec || sec==time/1000000000 && time%1000000000 >=nsec)
 		{
 			task[flag]->state=TASK_READY;
 			flag=0;
 		}
 	}
+}
+
+void taskFree(int i)
+{
+	for(int j=0;j<PROCOFILENUM;j++)
+	{
+		frelease(task[i]->FTable[j]);
+	}
+	eput(task[i]->cwd);
+	kfree(task[i]->stack);
+	kfree(task[i]->mm->vma);
+	kfree(task[i]->mm);
+	kfree(task[i]);
+	task[i]=0;
 }
