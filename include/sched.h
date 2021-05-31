@@ -163,5 +163,7 @@ int either_copy(int user, void* dst, void *src, uint64 len);
 /* 修改数据段的大小 */
 long brk(int64 addr);
 
+void taskFree(int i);
+
 
 #endif
