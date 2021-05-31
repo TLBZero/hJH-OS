@@ -5,11 +5,26 @@
 #include "string.h"
 #include "spinlock.h"
 #include "system.h"
+#include "pipe.h"
 // #define DEBUG
 
 struct devsw devsw[NDEV];
 struct file SysFTable[SYSOFILENUM];
 struct spinlock SysFLock;
+
+/**
+ * @brief 创建管道
+ * 
+ * @param regs struct task的栈
+ * @return 成功执行，返回0。失败，返回-1
+ */
+int sys_pipe2(uintptr_t *regs)
+{
+    int *fd;
+    fd=(int*)regs[REG_A(0)];
+    int ret=pipealloc(fd, fd+1);
+    return ret;
+}
 
 void sysfile_init(){
     initlock(&SysFLock, "sysfile");
@@ -294,7 +309,9 @@ int isdirempty(struct dirent *dp)
  * @param size buffer的大小
  * @return 指向当前工作目录的字符串的指针；若失败，则返回NULL。
  */
-char *sys_getcwd(char *buf, uint size){
+char *sys_getcwd(uintptr_t *regs){
+    char *buf=(char *)regs[REG_A(0)];
+    uint size=(uint)regs[REG_A(1)];
     // Note, buf shall be allocated from it's heap rather than kmalloc
     if (!buf){
         if ((buf = (char *)kmalloc(size)) == NULL)
@@ -311,7 +328,8 @@ char *sys_getcwd(char *buf, uint size){
  * 
  * @return 返回的新的描述符，若失败则返回-1
  */
-int sys_dup(int fd){
+int sys_dup(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
     int nfd = locate_fd();
     if(nfd<0) return -1; // Fails
     fdup(current->FTable[fd]);
@@ -324,7 +342,9 @@ int sys_dup(int fd){
  * 
  * @return 返回的新的描述符，若失败则返回-1
  */
-int sys_dup3(int old, int new){
+int sys_dup3(uintptr_t *regs){
+    int old=regs[REG_A(0)];
+    int new=regs[REG_A(1)];
     if(check_fd(new)<0) return -1;
 
     struct file* file = fdup(current->FTable[old]);
@@ -360,7 +380,8 @@ int cd(const char *pathname){
 }
 
 
-int sys_chdir(const char *pathname){
+int sys_chdir(uintptr_t *regs){
+    const char *pathname=(const char *)regs[REG_A(0)];
     return cd(pathname);
 }
 
@@ -431,7 +452,12 @@ int open(char *pathname, int flags, mode_t mode){
  * @param mode Unused
  * @return 打开或创建文件的文件描述符，如失败则返回-1
  */
-int sys_openat(int dirfd, const char *pathname, int flags, mode_t mode){
+int sys_openat(uintptr_t *regs){
+    int dirfd=regs[REG_A(0)];
+    const char *pathname=(const char *)regs[REG_A(1)];
+    int flags=regs[REG_A(2)];
+    mode_t mode=(mode_t)regs[REG_A(3)];
+
     int res;
     if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
         struct dirent* ep = current->cwd;
@@ -449,7 +475,8 @@ int sys_openat(int dirfd, const char *pathname, int flags, mode_t mode){
  * @param fd 要关闭的文件描述符
  * @return 成功执行返回0，失败返回-1
  */
-int sys_close(int fd){
+int sys_close(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
     struct file* file = current->FTable[fd];
     if(!file) return -1;// Null file!
 
@@ -466,7 +493,10 @@ int sys_close(int fd){
  * @param count 要读取的字节数
  * @return 成功执行，返回读取的字节数。如为0，表示文件结束。错误，则返回-1
  */
-int sys_read(int fd, char *buf, int count){
+int sys_read(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
+    char *buf=(char *)regs[REG_A(1)];
+    int count=regs[REG_A(2)];
     struct file* file = current->FTable[fd];
     return fread(file, buf, count);
 }
@@ -479,7 +509,10 @@ int sys_read(int fd, char *buf, int count){
  * @param count 要写入的字节数
  * @return 成功执行，返回写入的字节数。错误，则返回-1
  */
-int sys_write(int fd, char* buf, int count){
+int sys_write(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
+    char* buf=(char *)regs[REG_A(1)];
+    int count=regs[REG_A(2)];
     struct file* file = current->FTable[fd];
     return fwrite(file, buf, count);
 }
@@ -517,7 +550,10 @@ int mkdir(char *pathname, mode_t mode){
  * @param mode Unused
  * @return 成功执行返回0。失败返回-1
  */
-int sys_mkdirat(int dirfd, const char *pathname, mode_t mode){
+int sys_mkdirat(uintptr_t *regs){
+    int dirfd= regs[REG_A(0)];
+    const char *pathname= (const char *)regs[REG_A(1)];
+    mode_t mode=(mode_t)regs[REG_A(2)];
     int res;
     if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
         struct dirent* ep = current->cwd;
@@ -537,7 +573,10 @@ int sys_mkdirat(int dirfd, const char *pathname, mode_t mode){
  * @param len buf大小
  * @return 成功执行，返回读取的字节数。当到目录结尾，则返回0。失败，则返回-1
  */
-int sys_getdents64(int fd, char *buf, int len){
+int sys_getdents64(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
+    char *buf=(char *)regs[REG_A(1)];
+    int len=regs[REG_A(2)];
     struct file* file = current->FTable[fd];
     if(!file || !buf )// Null file!
         return -1;
@@ -590,7 +629,9 @@ int fstat(int fd, struct kstat* st){
     return 0;
 }
 
-int sys_fstat(int fd, struct kstat *st){
+int sys_fstat(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
+    struct kstat *st=(struct kstat *)regs[REG_A(1)];
     return fstat(fd, st);
 }
 
@@ -624,7 +665,10 @@ int rm(const char* pathname, int flag){
     return 0;
 }
 
-int sys_unlinkat(int dirfd, const char* pathname, int flag){
+int sys_unlinkat(uintptr_t *regs){
+    int dirfd=regs[REG_A(0)];
+    const char* pathname=(const char *)regs[REG_A(1)];
+    int flag=regs[REG_A(2)];
     int res;
     if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
         struct dirent* ep = current->cwd;

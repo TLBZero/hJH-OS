@@ -20,6 +20,7 @@ OBJS = \
 	time.o \
 	systemInfo.o \
 	console.o \
+	sysother.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
@@ -121,7 +122,8 @@ time.o:
 console.o:
 	$(GCC) $(CFLAG) -c console.c -o $(BUILD)/console.o
 	
-	
+sysother.o:
+	$(GCC) $(CFLAG) -c sysother.c -o $(BUILD)/sysother.o	
 	
 vmlinux: $(LDSCRIPT) $(LKOBJS)
 	$(LD) -T $(LDSCRIPT) $(LKOBJS) -o ../../../vmlinux

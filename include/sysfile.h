@@ -111,3 +111,17 @@ struct file* fdup(struct file* file);
 void fseek(struct file* file, uint pos);
 int dirnext(struct file *file, struct dirent* ep);
 
+/* syscall in fs */ 
+char *sys_getcwd(uintptr_t *regs);
+int sys_dup(uintptr_t *regs);
+int sys_dup3(uintptr_t *regs);
+int sys_chdir(uintptr_t *regs);
+int sys_openat(uintptr_t *regs);
+int sys_close(uintptr_t *regs);
+int sys_getdents64(uintptr_t *regs);
+int sys_read(uintptr_t *regs);
+int sys_write(uintptr_t *regs);
+int sys_unlinkat(uintptr_t *regs);
+int sys_mkdirat(uintptr_t *regs);
+int sys_fstat(uintptr_t *regs);
+int sys_pipe2(uintptr_t *regs);

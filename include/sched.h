@@ -16,7 +16,7 @@
 #define FIRST_TASK  (task[0])
 #define LAST_TASK   (task[NR_TASKS-1])
 
-/* 定义task的状态，Lab3中task只需要一种状态。*/
+/* 定义task的状态 */
 #define TASK_READY               0
 #define TASK_ZOMBIE              1
 #define TASK_SLEEPING            2
@@ -84,7 +84,7 @@ struct mm_struct {
 
 /* 进程数据结构 */
 struct task_struct {
-    long state;    // 进程状态 Lab3中进程初始化时置为TASK_RUNNING
+    long state;    // 进程状态
     long counter;  // 运行剩余时间 
     long priority; // 运行优先级 1最高 5最低
     long blocked;
@@ -159,6 +159,9 @@ void time(int64);
 
 /* 内存复制 */
 int either_copy(int user, void* dst, void *src, uint64 len);
+
+/* 修改数据段的大小 */
+long brk(int64 addr);
 
 
 #endif

@@ -478,7 +478,7 @@ int growtask(uint size){
 	return 0;
 }
 
-uint64 brk(int64 addr) {
+long brk(int64 addr) {
   if (addr <= 0) return current->size;
   if(growtask(addr - current->size)==-1) return -1;
   return current->size;
