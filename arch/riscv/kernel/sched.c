@@ -237,22 +237,15 @@ void user_init(){
 	return;
 }
 
-
-
-
-
-// Copy to either a user address, or kernel address,
-// depending on usr_dst.
-// Returns 0 on success, -1 on error.
+/**
+ * @brief Copy to either a user address, or kernel address,
+ * 
+ * @param user Whether a user address
+ * @return int 0 for success, -1 for failure
+ */
 int either_copy(int user, void* dst, void *src, uint64 len){
-	if(user){
-		// return copyout(p->pagetable, dst, src, len);
-		// return copyout2(dst, src, len);
-		return -1;
-	} else {
-		memcpy(dst, src, len);
-		return 0;
-	}
+	memcpy(dst, src, len);
+	return 0;
 }
 
 /* 申请新的pid*/

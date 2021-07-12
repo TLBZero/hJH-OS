@@ -49,23 +49,21 @@ CFLAG += -DQEMU
 LDSCRIPT = vmlinux-qemu.lds
 endif
 
-
 vmlinux:
 	-mkdir build arch/riscv/boot
 	${MAKE} -C ./init all
 	${MAKE} -C ./lib all
 	${MAKE} -C ./mm all
 	${MAKE} -C ./arch/riscv all
+	@echo "\033[;31m _     \033[0m\033[;33m    _ \033[0m\033[;34m_   _ \033[0m"
+	@echo "\033[;31m| |__  \033[0m\033[;33m   | |\033[0m\033[;34m | | |\033[0m"
+	@echo "\033[;31m| '_ \ \033[0m\033[;33m_  | |\033[0m\033[;34m |_| |\033[0m"
+	@echo "\033[;31m| | | |\033[0m\033[;33m |_| |\033[0m\033[;34m  _  |\033[0m"
+	@echo "\033[;31m|_| |_|\033[0m\033[;33m\___/|\033[0m\033[;34m_| |_|\033[0m"
 
 binary:
 	cp $(RUSTSBI) ./hJHOS.bin
 	dd if=arch/riscv/boot/Image of=hJHOS.bin bs=$(KSTART) seek=1
-	@echo "\033[;31m _     \033[0m\033[;33m    ___ \033[0m\033[;34m  _   _  \033[0m"
-	@echo "\033[;31m| |    \033[0m\033[;33m   |_  |\033[0m\033[;34m | | | | \033[0m"
-	@echo "\033[;31m| |__  \033[0m\033[;33m     | |\033[0m\033[;34m | |_| | \033[0m"
-	@echo "\033[;31m| '_ \ \033[0m\033[;33m     | |\033[0m\033[;34m |  _  | \033[0m"
-	@echo "\033[;31m| | | |\033[0m\033[;33m /\__/ /\033[0m\033[;34m | | | | \033[0m"
-	@echo "\033[;31m|_| |_|\033[0m\033[;33m \____/ \033[0m\033[;34m \_| |_/ \033[0m"
 
 clean:
 	-@rm -rf build vmlinux arch/riscv/boot System.map hJHOS.bin

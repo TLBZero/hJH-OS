@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 22:13:43
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #include "types.h"
 #include "riscv.h"
 #include "sched.h"
@@ -8,6 +16,7 @@
 #include "rustsbi.h"
 #include "vm.h"
 #include "disk.h"
+#include "console.h"
 
 void dumpInfo(){
 	uint64 sstatus, sepc, scause, sie, sip, stval, ra, sp;

@@ -6,7 +6,7 @@
 #include "spinlock.h"
 #include "system.h"
 #include "pipe.h"
-#define DEBUG
+// #define DEBUG
 
 struct devsw devsw[NDEV];
 struct file SysFTable[SYSOFILENUM];
@@ -28,7 +28,7 @@ int sys_pipe2(uintptr_t *regs)
 
 void sysfile_init(){
     initlock(&SysFLock, "sysfile");
-    for(struct file *file=SysFTable;file<SysFTable+SYSOFILENUM;file++){
+    for(struct file *file=SysFTable; file<SysFTable+SYSOFILENUM; file++){
         memset(file, 0, sizeof(struct file));
     }
     // STDIN
@@ -46,9 +46,7 @@ void sysfile_init(){
     SysFTable[2].f_perm = WRITABLE;
     SysFTable[2].f_count = 1;
     SysFTable[2].major = CONSOLE;
-    #ifdef DEBUG
     printf("[sysfile]file init done!\n");
-    #endif
 }
 
 void procfile_init(struct task_struct* task){
@@ -67,7 +65,7 @@ void procfile_init(struct task_struct* task){
  */
 uint falloc(){
     acquire(&SysFLock);
-    for(int sfd=0;sfd<SYSOFILENUM;sfd++)
+    for(int sfd=0; sfd<SYSOFILENUM; sfd++)
         if(SysFTable[sfd].f_count == 0){
             SysFTable[sfd].f_count = 1;
             release(&SysFLock);
@@ -95,6 +93,9 @@ void frelease(struct file* file){
         pipeclose(file);
     else if(file->f_type & (DT_REG|DT_DIR))
         eput(file->f_entry);
+
+    release(&SysFLock);
+    return;
 }
 
 /**
@@ -104,7 +105,7 @@ void frelease(struct file* file){
 int locate_fd(){
     int res = 0;
     acquire(&current->lk);
-    for(;res<PROCOFILENUM;res++)
+    for(; res<PROCOFILENUM; res++)
         if(current->FTable[res]==NULL){
             current->FTable[res] = 1;
             release(&current->lk);
@@ -150,9 +151,9 @@ void remove_fd(int fd){
  */
 int fread(struct file* file, void* dst, int num){
     if(!file) panic("fread error, read null file!");
-
     if(!(file->f_perm&READABLE))// Not readable
         return -1;
+
     int r;
     switch(file->f_type){
         case DT_REG:{
@@ -293,7 +294,7 @@ int dirnext(struct file *file, struct dirent* ep){
     return 1;
 }
 
-int isdirempty(struct dirent *dp)
+int isDirEmpty(struct dirent *dp)
 {
   struct dirent ep;
   int count;
@@ -309,27 +310,25 @@ int isdirempty(struct dirent *dp)
  * @param size buffer的大小
  * @return 指向当前工作目录的字符串的指针；若失败，则返回NULL。
  */
-char *sys_getcwd(uintptr_t *regs){
-    char *buf=(char *)regs[REG_A(0)];
-    uint size=(uint)regs[REG_A(1)];
-    // Note, buf shall be allocated from it's heap rather than kmalloc
+char *getcwd(char* buf, uint size){
     if (!buf){
         if ((buf = (char *)kmalloc(size)) == NULL)
             return NULL;
     }
+    // Note, buf shall be allocated from it's heap rather than kmalloc
     memset(buf, 0 ,size);
     if(epath(current->cwd, buf, size)==-1)
         return NULL;
     return buf;
 }
 
+
 /**
  * @brief 复制文件描述符
  * 
  * @return 返回的新的描述符，若失败则返回-1
  */
-int sys_dup(uintptr_t *regs){
-    int fd=regs[REG_A(0)];
+int dup(int fd){
     int nfd = locate_fd();
     if(nfd<0) return -1; // Fails
     fdup(current->FTable[fd]);
@@ -337,14 +336,13 @@ int sys_dup(uintptr_t *regs){
     return nfd;
 }
 
+
 /**
  * @brief 同dup，但指定了新的文件描述符
  * 
  * @return 返回的新的描述符，若失败则返回-1
  */
-int sys_dup3(uintptr_t *regs){
-    int old=regs[REG_A(0)];
-    int new=regs[REG_A(1)];
+int dup3(int old, int new){
     if(check_fd(new)<0) return -1;
 
     struct file* file = fdup(current->FTable[old]);
@@ -352,6 +350,29 @@ int sys_dup3(uintptr_t *regs){
 
     install_fd(new, file);
     return new;
+}
+
+
+char *sys_getcwd(uintptr_t *regs){
+    char *buf=(char *)regs[REG_A(0)];
+    uint size=(uint)regs[REG_A(1)];
+
+    return getcwd(buf, size);
+}
+
+
+int sys_dup(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
+
+    return dup(fd);
+}
+
+
+int sys_dup3(uintptr_t *regs){
+    int old=regs[REG_A(0)];
+    int new=regs[REG_A(1)];
+
+    return dup3(old, new);
 }
 
 int cd(const char *pathname){
@@ -452,21 +473,38 @@ int open(char *pathname, int flags, mode_t mode){
  * @param mode Unused
  * @return 打开或创建文件的文件描述符，如失败则返回-1
  */
+int openat(int dirfd, const char *path, int flags, mode_t mode){
+    int res;
+    if(*path!='/'&&dirfd!=AT_FDCWD){// Case 3
+        struct dirent* ep = current->FTable[dirfd]->f_entry; // Get dentry
+        char pathname[FAT32_MAX_PATH];
+        memset(pathname, 0, FAT32_MAX_PATH);
+
+        if(epath(ep, pathname, FAT32_MAX_PATH) == -1) // Get whole path fails!
+            return -1;
+        
+        int len = strlen(pathname);
+        if(len + strlen(path) >= FAT32_MAX_PATH)
+            return -1;  // Path too long!
+
+        strcpy(pathname+len, path);
+        #ifdef DEBUG
+        printf("[openat] Pathname: %s\n", pathname);
+        #endif
+        res = open(pathname, flags, mode);
+    }else res = open(path, flags, mode);// Case 1 and 2
+
+    return res;
+}
+
+
 int sys_openat(uintptr_t *regs){
     int dirfd=regs[REG_A(0)];
     const char *pathname=(const char *)regs[REG_A(1)];
     int flags=regs[REG_A(2)];
     mode_t mode=(mode_t)regs[REG_A(3)];
 
-    int res;
-    if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
-        struct dirent* ep = current->cwd;
-        current->cwd = current->FTable[dirfd]->f_entry; // Quite dirty way I guess
-        res = open(pathname, flags ,mode);
-        current->cwd = ep;
-    }else res = open(pathname, flags, mode);// Case 1 and 2
-
-    return res;
+    return openat(dirfd, pathname, flags, mode);
 }
 
 /**
@@ -498,6 +536,7 @@ int sys_read(uintptr_t *regs){
     char *buf=(char *)regs[REG_A(1)];
     int count=regs[REG_A(2)];
     struct file* file = current->FTable[fd];
+
     return fread(file, buf, count);
 }
 
@@ -513,8 +552,8 @@ int sys_write(uintptr_t *regs){
     int fd=regs[REG_A(0)];
     char* buf=(char *)regs[REG_A(1)];
     int count=regs[REG_A(2)];
-    printf("[sys_write]fd:%d, buf:%p, %s, count:%d\n", fd, buf, buf, regs);
     struct file* file = current->FTable[fd];
+
     return fwrite(file, buf, count);
 }
 
@@ -551,19 +590,37 @@ int mkdir(char *pathname, mode_t mode){
  * @param mode Unused
  * @return 成功执行返回0。失败返回-1
  */
+int mkdirat(int dirfd, const char * path, mode_t mode){
+    int res;
+    if(*path!='/'&&dirfd!=AT_FDCWD){// Case 3
+        struct dirent* ep = current->FTable[dirfd]->f_entry; // Get dentry
+        char pathname[FAT32_MAX_PATH];
+        memset(pathname, 0, FAT32_MAX_PATH);
+
+        if(epath(ep, pathname, FAT32_MAX_PATH) == -1) // Get whole path fails!
+            return -1;
+        
+        int len = strlen(pathname);
+        if(len + strlen(path) >= FAT32_MAX_PATH)
+            return -1;  // Path too long!
+
+        strcpy(pathname+len, path);
+        #ifdef DEBUG
+        printf("[mkdirat] Pathname: %s\n", pathname);
+        #endif
+        res = mkdir(pathname, mode);
+    }else res = mkdir(path, mode);// Case 1 and 2
+
+    return res;
+}
+
+
 int sys_mkdirat(uintptr_t *regs){
     int dirfd= regs[REG_A(0)];
     const char *pathname= (const char *)regs[REG_A(1)];
     mode_t mode=(mode_t)regs[REG_A(2)];
-    int res;
-    if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
-        struct dirent* ep = current->cwd;
-        current->cwd = current->FTable[dirfd]->f_entry;
-        res = mkdir(pathname ,mode);
-        current->cwd = ep;
-    }else res = mkdir(pathname, mode);// Case 1 and 2
 
-    return res;
+    return mkdirat(dirfd, pathname, mode);
 }
 
 /**
@@ -574,10 +631,7 @@ int sys_mkdirat(uintptr_t *regs){
  * @param len buf大小
  * @return 成功执行，返回读取的字节数。当到目录结尾，则返回0。失败，则返回-1
  */
-int sys_getdents64(uintptr_t *regs){
-    int fd=regs[REG_A(0)];
-    char *buf=(char *)regs[REG_A(1)];
-    int len=regs[REG_A(2)];
+int getdents64(int fd, char *buf, int len){
     struct file* file = current->FTable[fd];
     if(!file || !buf )// Null file!
         return -1;
@@ -598,6 +652,15 @@ int sys_getdents64(uintptr_t *regs){
     strcpy(ldr->d_name, ep.filename);
 
     return ldr->d_reclen;
+}
+
+
+int sys_getdents64(uintptr_t *regs){
+    int fd=regs[REG_A(0)];
+    char *buf=(char *)regs[REG_A(1)];
+    int len=regs[REG_A(2)];
+
+    return getdents64(fd, buf, len);
 }
 
 /**
@@ -633,6 +696,7 @@ int fstat(int fd, struct kstat* st){
 int sys_fstat(uintptr_t *regs){
     int fd=regs[REG_A(0)];
     struct kstat *st=(struct kstat *)regs[REG_A(1)];
+
     return fstat(fd, st);
 }
 
@@ -666,19 +730,36 @@ int rm(const char* pathname, int flag){
     return 0;
 }
 
+int unlinkat(int dirfd, const char *path, int flag){
+    int res;
+    if(*path!='/'&&dirfd!=AT_FDCWD){// Case 3
+        struct dirent* ep = current->FTable[dirfd]->f_entry; // Get dentry
+        char pathname[FAT32_MAX_PATH];
+        memset(pathname, 0, FAT32_MAX_PATH);
+
+        if(epath(ep, pathname, FAT32_MAX_PATH) == -1) // Get whole path fails!
+            return -1;
+        
+        int len = strlen(pathname);
+        if(len + strlen(path) >= FAT32_MAX_PATH)
+            return -1;  // Path too long!
+
+        strcpy(pathname+len, path);
+        #ifdef DEBUG
+        printf("[unlinkdat] Pathname: %s\n", pathname);
+        #endif
+        res = rm(pathname, flag);
+    }else res = rm(path, flag);// Case 1 and 2
+
+    return res;
+}
+
 int sys_unlinkat(uintptr_t *regs){
     int dirfd=regs[REG_A(0)];
     const char* pathname=(const char *)regs[REG_A(1)];
     int flag=regs[REG_A(2)];
-    int res;
-    if(*pathname!='/'&&dirfd!=AT_FDCWD){// Case 3
-        struct dirent* ep = current->cwd;
-        current->cwd = current->FTable[dirfd]->f_entry;
-        res = rm(pathname, flag);
-        current->cwd = ep;
-    }else res = rm(pathname, flag);// Case 1 and 2
 
-    return res;
+    return unlinkat(dirfd, pathname, flag);
 }
 
 void sysfile_test(){

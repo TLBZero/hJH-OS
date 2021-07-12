@@ -16,52 +16,64 @@
 #include "rustsbi.h"
 #include "system.h"
 #include "put.h"
+#include "console.h"
 
 #define Enter (13)
 #define BACKSPACE (0x100)
 #define INPUT_BUF 128
-#define C(x)  ((x)-'@')  // Control-x
+#define C(x) ((x) - '@') // Control-x
 #define DEBUG
 
 extern struct devsw devsw[NDEV];
 
-void consputc(int c) {
-  if(c == BACKSPACE){
-    // if the user typed backspace, overwrite with a space.
-    console_putchar('\b');
-    console_putchar(' ');
-    console_putchar('\b');
-  } else {
-    console_putchar(c);
-  }
+void consputc(int c)
+{
+	if (c == BACKSPACE)
+	{
+		// if the user typed backspace, overwrite with a space.
+		console_putchar('\b');
+		console_putchar(' ');
+		console_putchar('\b');
+	}
+	else
+	{
+		console_putchar(c);
+	}
 }
-struct {
-  struct spinlock lock;
-  // input
-  char buf[INPUT_BUF];
-  uint r;  // Read index
-  uint w;  // Write index
-  uint e;  // Edit index
+
+struct
+{
+	struct spinlock lock;
+	// input
+	char buf[INPUT_BUF];
+	uint r; // Read index
+	uint w; // Write index
+	uint e; // Edit index
 } cons;
 
-//
-// user write()s to the console go here.
-//
-int
-consolewrite(int user_src, uint64 src, int n)
+/**
+ * @brief user write()s to the console go here.
+ * 
+ * @param user_src 
+ * @param src 
+ * @param n 
+ * @return int 
+ */
+int consolewrite(int user_src, uint64 src, int n)
 {
-  int i;
+	int i;
+	char c;
 
-  acquire(&cons.lock);
-  for(i = 0; i < n; i++){
-    char c;
-    if(either_copy(user_src, &c, src+i, 1) == -1)
-      break;
-    console_putchar(c);
-  }
-  release(&cons.lock);
+	acquire(&cons.lock);
+	for (i = 0; i < n; i++)
+	{
+		if (either_copy(user_src, &c, src + i, 1) == -1)
+			break;
+		console_putchar(c);
+	}
+	release(&cons.lock);
 
-  return i;
+	return i;
 }
 
 //
@@ -70,54 +82,58 @@ consolewrite(int user_src, uint64 src, int n)
 // user_dist indicates whether dst is a user
 // or kernel address.
 //
-int
-consoleread(int user_dst, uint64 dst, int n)
+int consoleread(int user_dst, uint64 dst, int n)
 {
-  printf("[consoleread]in!\n");
-  uint target;
-  int c;
-  char cbuf;
-  target = n;
-  acquire(&cons.lock);
-  while(n > 0){
-    // wait until interrupt handler has put some
-    // input into cons.buffer.
-    while(cons.r == cons.w){
-      // if(){
-      //   release(&cons.lock);
-      //   return -1;
-      // }
-      sleep(&cons.r, &cons.lock);
-    }
+	printf("[consoleread]in!\n");
+	uint target;
+	int c;
+	char cbuf;
+	target = n;
+	acquire(&cons.lock);
+	while (n > 0)
+	{
+		// wait until interrupt handler has put some
+		// input into cons.buffer.
+		while (cons.r == cons.w)
+		{
+			// if(){
+			//   release(&cons.lock);
+			//   return -1;
+			// }
+			sleep(&cons.r, &cons.lock);
+		}
 
-    c = cons.buf[cons.r++ % INPUT_BUF];
+		c = cons.buf[cons.r++ % INPUT_BUF];
 
-    if(c == C('D')){  // end-of-file
-      if(n < target){
-        // Save ^D for next time, to make sure
-        // caller gets a 0-byte result.
-        cons.r--;
-      }
-      break;
-    }
+		if (c == C('D'))
+		{ // end-of-file
+			if (n < target)
+			{
+				// Save ^D for next time, to make sure
+				// caller gets a 0-byte result.
+				cons.r--;
+			}
+			break;
+		}
 
-    // copy the input byte to the user-space buffer.
-    cbuf = c;
-    if(either_copy(user_dst, dst, &cbuf, 1) == -1)
-      break;
+		// copy the input byte to the user-space buffer.
+		cbuf = c;
+		if (either_copy(user_dst, dst, &cbuf, 1) == -1)
+			break;
 
-    dst++;
-    --n;
+		dst++;
+		--n;
 
-    if(c == '\n'){
-      // a whole line has arrived, return to
-      // the user-level read().
-      break;
-    }
-  }
-  release(&cons.lock);
+		if (c == '\n')
+		{
+			// a whole line has arrived, return to
+			// the user-level read().
+			break;
+		}
+	}
+	release(&cons.lock);
 
-  return target - n;
+	return target - n;
 }
 
 //
@@ -126,63 +142,65 @@ consoleread(int user_dst, uint64 dst, int n)
 // do erase/kill processing, append to cons.buf,
 // wake up consoleread() if a whole line has arrived.
 //
-void
-consoleintr(int c)
+void consoleintr(int c)
 {
-  acquire(&cons.lock);
+	acquire(&cons.lock);
 
-  switch(c){
-  case C('P'):  // Print process list.
-    // procdump();
-    break;
-  case C('U'):  // Kill line.
-    while(cons.e != cons.w &&
-          cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
-      cons.e--;
-      consputc(BACKSPACE);
-    }
-    break;
-  case C('H'): // Backspace
-  case '\x7f':
-    if(cons.e != cons.w){
-      cons.e--;
-      consputc(BACKSPACE);
-    }
-    break;
-  default:
-    if(c != 0 && cons.e-cons.r < INPUT_BUF){
-      #ifndef QEMU
-      if (c == '\r') break;     // on k210, "enter" will input \n and \r
-      #else
-      c = (c == '\r') ? '\n' : c;
-      #endif
-      // echo back to the user.
-      consputc(c);
+	switch (c)
+	{
+	case C('P'): // Print process list.
+		// procdump();
+		break;
+	case C('U'): // Kill line.
+		while (cons.e != cons.w &&
+			   cons.buf[(cons.e - 1) % INPUT_BUF] != '\n')
+		{
+			cons.e--;
+			consputc(BACKSPACE);
+		}
+		break;
+	case C('H'): // Backspace
+	case '\x7f':
+		if (cons.e != cons.w)
+		{
+			cons.e--;
+			consputc(BACKSPACE);
+		}
+		break;
+	default:
+		if (c != 0 && cons.e - cons.r < INPUT_BUF)
+		{
+			#ifndef QEMU
+			if (c == '\r')
+				break; // on k210, "enter" will input \n and \r
+			#else
+			c = (c == '\r') ? '\n' : c;
+			#endif
+			// echo back to the user.
+			consputc(c);
 
-      // store for consumption by consoleread().
-      cons.buf[cons.e++ % INPUT_BUF] = c;
+			// store for consumption by consoleread().
+			cons.buf[cons.e++ % INPUT_BUF] = c;
 
-      if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF){
-        // wake up consoleread() if a whole line (or end-of-file)
-        // has arrived.
-        cons.w = cons.e;
-        wakeup(&cons.r);
-      }
-    }
-    break;
-  }
-  
-  release(&cons.lock);
+			if (c == '\n' || c == C('D') || cons.e == cons.r + INPUT_BUF)
+			{
+				// wake up consoleread() if a whole line (or end-of-file)
+				// has arrived.
+				cons.w = cons.e;
+				wakeup(&cons.r);
+			}
+		}
+		break;
+	}
+
+	release(&cons.lock);
 }
 
-void
-console_init(void)
+void console_init(void)
 {
-  initlock(&cons.lock, "cons");
-  cons.e = cons.w = cons.r = 0;
-  devsw[CONSOLE].read = consoleread;
-  devsw[CONSOLE].write = consolewrite;
-  #ifdef DEBUG
-  printf("[console]console init done!\n");
-  #endif
+	initlock(&cons.lock, "cons");
+	cons.e = cons.w = cons.r = 0;
+	devsw[CONSOLE].read = consoleread;
+	devsw[CONSOLE].write = consolewrite;
+	printf("[console]console init done!\n");
 }
