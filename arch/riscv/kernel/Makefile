@@ -21,6 +21,8 @@ OBJS = \
 	systemInfo.o \
 	console.o \
 	sysother.o \
+	clone.o \
+	exec.o \
 
 ifeq ($(PLATFORM), k210)
 OBJS += \
@@ -52,6 +54,12 @@ strap.o:
 
 sched.o:
 	$(GCC) $(CFLAG) -c sched.c -o $(BUILD)/sched.o
+
+clone.o:
+	$(GCC) $(CFLAG) -c clone.c -o $(BUILD)/clone.o
+
+exec.o:
+	$(GCC) $(CFLAG) -c exec.c -o $(BUILD)/exec.o
 
 vm.o:
 	$(GCC) $(CFLAG) -c vm.c -o $(BUILD)/vm.o

@@ -193,17 +193,17 @@ void first_switch_to(){
 
 
 void task_test(){
-	// uint64 _a0 = 1;
-	// uint64 _a1 = 0;
-	// uint64 _a2 = 0;
-	// uint64 _a3 = 0;
-	// uint64 _a4 = 0;
-	// register uint64 a0 asm("a0") = _a0;
-	// register uint64 a1 asm("a1") = _a1;
-	// register uint64 a2 asm("a2") = _a2;
-	// register uint64 a3 asm("a2") = _a3;
-	// register uint64 a4 asm("a2") = _a4;
-	// register long syscall_id asm("a7") = 64;
+	uint64 _a0 = 1;
+	uint64 _a1 = 0;
+	uint64 _a2 = 0;
+	uint64 _a3 = 0;
+	uint64 _a4 = 0;
+	register uint64 a0 asm("a0") = _a0;
+	register uint64 a1 asm("a1") = _a1;
+	register uint64 a2 asm("a2") = _a2;
+	register uint64 a3 asm("a2") = _a3;
+	register uint64 a4 asm("a2") = _a4;
+	register long syscall_id asm("a7") = 220;
 	// char a[7];
 	// a[0]='h';
 	// a[1]='e';
@@ -218,7 +218,8 @@ void task_test(){
 	// a3 = _a3;
 	// a4 = _a4;
 	// syscall_id = 64;
-	// asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
+	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
+	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
 	// fat_init();
 	// btest();
 	// test_sdcard();
@@ -236,179 +237,7 @@ void user_init(){
 	return;
 }
 
-int alloc_pid()
-{
-	for (int i=1; i<NR_TASKS; i++)
-		if (task[i]==NULL)
-			return i;
-	return -1;
-}
 
-void forket(){
-	ret_from_fork(current->stack);
-}
-
-/**
- * 复制一个进程
- */
-pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
-{
-	int child=alloc_pid();
-	if (child < 0) return -1;
-	task[child]=(struct task_struct*)kmalloc(PAGE_SIZE);
-	task[child]->state=TASK_READY;
-	task[child]->counter=rand();
-	task[child]->priority=5;
-	task[child]->blocked=0;
-	task[child]->pid=child;
-	task[child]->ppid=current->pid;
-	task[child]->stack=(uint64*)kmalloc(STACK_SIZE);
-	task[child]->xstate=-1;
-	task[child]->chan=0;
-
-	task[child]->utime=0;
-	task[child]->stime=0;
-	task[child]->cutime=0;
-	task[child]->cstime=0;
-	memcpy(task[child]->stack, current->stack, STACK_SIZE);
-	task[child]->stack[REG_A(0)] = 0;
-	task[child]->stack[SEPC] += 4;
-
-	task[child]->mm=(struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-	struct vm_area_struct *parentVMA=current->mm->vma, *childVMA;
-	if (parentVMA) do {
-		childVMA=(struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
-		memcpy(childVMA, parentVMA, sizeof(struct vm_area_struct));
-		if(task[child]->mm->vma) {
-			childVMA->vm_prev=task[child]->mm->vma;
-			childVMA->vm_next=task[child]->mm->vma->vm_next;
-			task[child]->mm->vma->vm_next->vm_prev=childVMA;
-			task[child]->mm->vma->vm_next=childVMA;
-		}
-		else {
-			task[child]->mm->vma=childVMA;
-			childVMA->vm_prev=childVMA;
-			childVMA->vm_next=childVMA;
-		}
-		parentVMA=parentVMA->vm_next;
-	}while(parentVMA!=current->mm->vma);
-
-	task[child]->mm->pagetable=(pagetable_t)kmalloc(PAGE_SIZE);
-	memcpy(task[child]->mm->pagetable, current->mm->pagetable, PAGE_SIZE);
-
-	if (!stack)
-		stack = kmalloc(PAGE_SIZE);
-	else
-		stack = (void *)kwalkaddr(current->mm->pagetable, (uint64)stack);
-	
-	delete_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), PAGE_SIZE);
-	create_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), (uint64)stack, PAGE_SIZE, PTE_R|PTE_W|PTE_U);
-	memcpy(stack, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE);
-
-	task[child]->thread.sp=(uint64)task[child]+PAGE_SIZE;
-	task[child]->thread.ra=(uint64)&forket;
-	uint64 sepc;
-	r_csr(sepc, sepc);
-	task[child]->thread.sepc= (sepc + 4);
-
-	procfile_init(task[child]);
-
-	printf("[clone PID = %d] Process fork from [PID = %d] Successfully! counter = %d\n",task[child]->pid,current->pid,task[child]->counter);
-	return task[child]->pid;
-}
-
-int loadseg(pagetable_t pagetable, uint64 va, struct dirent *ip, uint offset, uint filesz) 
-{
-	uint64 pa;
-	uint n;
-	if ((va%PAGE_SIZE) != 0)
-		panic("loadseg error, va should be aligned!");
-
-	for (uint i=0; i<filesz; i+=PAGE_SIZE)
-	{
-		pa = kwalkaddr(pagetable, va);
-		if (pa == (uint64)NULL)
-			panic("loadseg error, address wrong!");
-		if (filesz - i < PAGE_SIZE)
-			n = filesz-1;
-		else
-			n = PAGE_SIZE;
-		if (eread(ip, pa, offset+i, n)!=n)
-			return -1;
-	}
-
-	return 0;
-}
-
-int parse_ph_flags(struct proghdr* ph)
-{
-	int flag = 0;
-	if (ph->type != ELF_PROG_LOAD)
-		flag = 1;
-	if (ph->memsz < ph->filesz)
-		flag = 1;
-	if (ph->vaddr + ph->memsz < ph->vaddr)
-		flag = 1;
-	return flag;
-}
-
-int exec(const char *path, char *const argv[], char *const envp[])
-{
-	char _path[FAT32_MAX_PATH];
-	strcpy(_path, path);
-	struct dirent* inode;
-	struct elfhdr elf;
-	struct proghdr ph;
-	pagetable_t pagetable=NULL;
-	int i, off;
-
-	if ((pagetable = (pagetable_t)kmalloc(PAGE_SIZE)) == NULL)
-	{
-		return -1;
-	}
-	memset(pagetable, 0, PAGE_SIZE);
-	memcpy((void *)pagetable, (void *)kernel_pagetable, PAGE_SIZE);
-	if ((inode = ename(_path)) == NULL)
-		goto fail;
-	if (eread(inode, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
-		goto fail;
-	if (elf.magic != ELF_MAGIC)
-		goto fail;
-	//load program
-	for (i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph))
-	{
-		if ((eread(inode, (uint64)&ph, off, sizeof(ph))) != sizeof(ph))
-			goto fail;
-		if (parse_ph_flags(&ph)==1)
-			goto fail;
-		uint64 va = (uint64)kmalloc(ph.memsz);
-
-		create_mapping(pagetable, ph.vaddr, (uint64)kmalloc(ph.memsz), ph.memsz, (ph.flags)|PTE_U|PTE_X);
-		if (ph.vaddr % PAGE_SIZE != 0)
-			goto fail;
-		if (loadseg(pagetable, ph.vaddr, inode, ph.off, ph.filesz) < 0)
-			goto fail;
-	}
-	create_mapping(pagetable, USER_END-PAGE_SIZE, (uint64)kmalloc(PAGE_SIZE),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
-	
-	c_csr(sstatus, 0x100);
-	s_csr(sstatus, 0x40002);
-	w_csr(sscratch, USER_END);
-	current->mm->pagetable = pagetable;
-	current->thread.sscratch = (uint64)USER_END;
-	current->thread.sepc = elf.entry;
-	w_csr(sepc, elf.entry);
-	asm volatile("csrw satp, %0"::"r"(SV39|((uint64)pagetable>>12)));
-	asm volatile("sfence.vma");
-	return 0;
-
-fail:
-	#ifdef DEBUG
-	printf("[S] exec failed!\n");
-	#endif
-	kfree(pagetable);
-	return -1;
-}
 
 
 
@@ -424,6 +253,15 @@ int either_copy(int user, void* dst, void *src, uint64 len){
 		memcpy(dst, src, len);
 		return 0;
 	}
+}
+
+/* 申请新的pid*/
+int alloc_pid()
+{
+	for (int i=1; i<NR_TASKS; i++)
+		if (task[i]==NULL)
+			return i;
+	return -1;
 }
 
 /* 返回当前进程的pid*/

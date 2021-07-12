@@ -128,9 +128,6 @@ void user_init();
 /* 测试 */
 void task_test(void);
 
-/* clone */
-pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid);
-
 /* 当其他进程获得该睡眠锁之后，此进程进入睡眠状态 */
 void sleep(void*, struct spinlock*);
 

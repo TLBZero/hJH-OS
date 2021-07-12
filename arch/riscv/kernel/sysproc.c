@@ -3,6 +3,8 @@
 #include "vm.h"
 #include "types.h"
 #include "riscv.h"
+#include "clone.h"
+#include "exec.h"
 
 /**
  * @brief 系统调用：创建一个子进程
