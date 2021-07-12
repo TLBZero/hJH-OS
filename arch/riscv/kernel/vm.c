@@ -20,7 +20,8 @@ pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc){
         pte_t* pte = &pagetable[PX(level, va)];
         if(*pte & PTE_V) pagetable = (pte_t*)PTE2PA(*pte);//if address is valid, pagetable <- next pagetable
         else{//or we need to add this pagetable
-            if(!alloc || ((pagetable = (pde_t *)(K_VA2PA((uint64)alloc_pages(1)))) == 0)) return 0;//error, either because alloc=0 or kframe_alloc fails.
+            if(!alloc || ((pagetable = (pde_t *)alloc_pages(1)) == 0)) 
+                return 0;//error, either because alloc=0 or kframe_alloc fails.
             *pte = PA2PTE(pagetable) | PTE_V;
         }
     }
@@ -88,22 +89,22 @@ void paging_init(){
     sysctl_pll_enable(SYSCTL_PLL1);
     sysctl_clock_enable(SYSCTL_CLOCK_PLL1);
     #endif
-    // Initialize memory space
+    /* Initialize memory space */
     memset((uint64)_end, 0, MEM_END-(uint64)_end);
     init_buddy_system();
 
-    kernel_pagetable = (pagetable_t) K_VA2PA((uint64)alloc_pages(1));
+    kernel_pagetable = (pagetable_t)alloc_pages(1);
     
     memset(kernel_pagetable, 0, PAGE_SIZE);
 
-    //UART
+    // UART
     create_mapping(kernel_pagetable, UARTHS_BASE_ADDR, UARTHS_P, PAGE_SIZE, PTE_R | PTE_W);
 
     #ifdef QEMU
     create_mapping(kernel_pagetable, VIRTIO0, VIRTIO0_P, PAGE_SIZE, PTE_R|PTE_W);
     #endif
 
-    //CLINT
+    // CLINT
     create_mapping(kernel_pagetable, CLINT_BASE_ADDR, CLINT_P, 0x10000, PTE_R | PTE_W);
     // PLIC
     create_mapping(kernel_pagetable, PLIC_BASE_ADDR, PLIC_P, 0x4000, PTE_R | PTE_W);
@@ -112,6 +113,7 @@ void paging_init(){
     #ifndef QEMU
     // GPIOHS
     create_mapping(kernel_pagetable, GPIOHS_BASE_ADDR, GPIOHS_P, 0x1000, PTE_R | PTE_W);
+
     // DMAC
     create_mapping(kernel_pagetable, DMAC_BASE_ADDR, DMAC_P, 0x1000, PTE_R | PTE_W);
 
@@ -141,25 +143,17 @@ void paging_init(){
     printf("bss_start:%p, bss_end:%p\n", bss_start, bss_end);
     #endif
 
-    create_mapping(kernel_pagetable,SBIBASE,SBIBASE,SBISIZE,PTE_R|PTE_X);
-    create_mapping(kernel_pagetable,KERNELBASE,KERNELBASE,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);
+    create_mapping(kernel_pagetable,SBI_BASE, SBI_BASE,SBI_SIZE,PTE_R|PTE_X);
+    create_mapping(kernel_pagetable,KERNEL_BASE,KERNEL_BASE,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);
     create_mapping(kernel_pagetable,(uint64)rodata_start,(uint64)rodata_start,(uint64)rodata_end-(uint64)rodata_start,PTE_R);
     create_mapping(kernel_pagetable,(uint64)data_start,(uint64)data_start,(uint64)data_end-(uint64)data_start,PTE_R|PTE_W);
     create_mapping(kernel_pagetable,(uint64)bss_start,(uint64)bss_start, MEM_END-(uint64)bss_start,PTE_R|PTE_W);
-
-    create_mapping(kernel_pagetable,SBI_HIGH_BASE,SBIBASE,SBISIZE,PTE_R|PTE_X);
-    create_mapping(kernel_pagetable,KERNEL_HIGH_BASE,KERNELBASE,(uint64)text_end-(uint64)text_start,PTE_R|PTE_X);
-    create_mapping(kernel_pagetable,PHY2VIRT((uint64)rodata_start),(uint64)rodata_start,(uint64)rodata_end-(uint64)rodata_start,PTE_R);
-    create_mapping(kernel_pagetable,PHY2VIRT((uint64)data_start),(uint64)data_start,(uint64)data_end-(uint64)data_start,PTE_R|PTE_W);
-    create_mapping(kernel_pagetable,PHY2VIRT((uint64)bss_start),(uint64)bss_start,MEM_END-(uint64)bss_start,PTE_R|PTE_W);
 
     asm volatile("csrw satp, %0"::"r"(SV39|((uint64)kernel_pagetable>>12)));
     asm volatile("sfence.vma");
 
     slub_init();
-    #ifdef DEBUG
     printf("[vm]paging init donw!\n");
-    #endif
     return;
 }
 
@@ -203,7 +197,9 @@ void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
         newVMA->vm_prev=newVMA;
         newVMA->vm_next=newVMA;
     }
-    // printf("[S] New vm_area_struct: start %p, end %p, prot [r:%d,w:%d,x:%d]\n",newVMA->vm_start, newVMA->vm_end, (prot&PROT_READ)!=0, (prot&PROT_WRITE)!=0, (prot&PROT_EXEC)!=0);
+    #ifdef DEBUG
+    printf("[S] New vm_area_struct: start %p, end %p, prot [r:%d,w:%d,x:%d]\n",newVMA->vm_start, newVMA->vm_end, (prot&PROT_READ)!=0, (prot&PROT_WRITE)!=0, (prot&PROT_EXEC)!=0);
+    #endif
     return astart;
 }
 
@@ -238,7 +234,7 @@ void free_page_tables(uint64 pagetable, uint64 va, uint64 n, int free_frame){
         pa = PTE2PA(*pte)+VA_OFFSET(va);
         *pte=0;
 
-        if(free_frame) kfree(K_PA2VA(pa));//Free frames
+        if(free_frame) kfree(pa);//Free frames
         va+=PAGE_SHIFT;
     }
     return;
@@ -291,7 +287,7 @@ int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned){
 
     void* mem = 0;
     if(!aligned){
-        mem = K_VA2PA((uint64)kmalloc(PAGE_ROUNDUP(size)));
+        mem = kmalloc(PAGE_ROUNDUP(size));
         memcpy(mem, src, size);
     }else{
         mem = kwalkaddr(utask->mm->pagetable, src);

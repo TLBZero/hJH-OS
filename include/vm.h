@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 12:27:15
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #pragma once
 // #define DEBUG
 #include "slub.h"
@@ -23,21 +31,21 @@
 #define PTE_U (1L << 4)
 
 /* permission flags */
-#define MAP_PRIVATE 0x2
-#define MAP_ANONYMOUS 0x20
-#define PROT_NONE	0x0	//页内容不可被访问
-#define PROT_READ	0x1	//页内容可以被读取
-#define PROT_WRITE	0x2	//页可以被写入内容
-#define PROT_EXEC	0x4	//页内容可以被执行
-#define PROT_SEM    0x8 //
-#define PROT_GROWSDOWN  0x01000000  //
-#define PROT_GROWSUP    0x02000000  //
+#define MAP_PRIVATE     0x2
+#define MAP_ANONYMOUS   0x20
+#define PROT_NONE	    0x0	//页内容不可被访问
+#define PROT_READ	    0x1	//页内容可以被读取
+#define PROT_WRITE	    0x2	//页可以被写入内容
+#define PROT_EXEC	    0x4	//页内容可以被执行
+#define PROT_SEM        0x8 
+#define PROT_GROWSDOWN  0x01000000
+#define PROT_GROWSUP    0x02000000
 
 /* shift a physical address to the right place for a PTE. */
-#define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
-#define PTE2PA(pte) (((pte) >> 10) << 12)
-#define PTE_FLAGS(pte) ((pte) & 0x3FF)
-#define VA_OFFSET(va) ((va)&(0xfff))
+#define PA2PTE(pa)      ((((uint64)pa) >> 12) << 10)
+#define PTE2PA(pte)     (((pte) >> 10) << 12)
+#define PTE_FLAGS(pte)  ((pte) & 0x3FF)
+#define VA_OFFSET(va)   ((va)&(0xfff))
 
 /* extract the three 9-bit page table indices from a virtual address. */
 #define PXMASK          0x1FF // 9 bits

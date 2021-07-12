@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 12:38:18
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #include "sleeplock.h"
 #include "spinlock.h"
 #include "sched.h"
@@ -26,7 +34,7 @@ void releasesleep(struct sleeplock *lk)
     wakeup(lk);
     #ifdef DEBUG
     puts(lk->name);
-	printf(" releasesleep sucessfully!\n");
+	puts(" releasesleep sucessfully!\n");
     #endif
     release(&lk->lk);
 }

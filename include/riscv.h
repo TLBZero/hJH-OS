@@ -1,7 +1,5 @@
 #pragma once
 
-#define USER_END 0xffffffdf80000000UL
-
 /* Some Exception */
 #define S_TIME  5
 #define M_TIME  7
@@ -52,25 +50,26 @@
 #define SSCRATCH 33
 #define SSTATUS 32
 #define SEPC 31
+
 /* Operations on memory */
 #define readb(addr) (*(volatile uint8 *)(addr))
 #define readw(addr) (*(volatile uint16 *)(addr))
 #define readd(addr) (*(volatile uint32 *)(addr))
 #define readq(addr) (*(volatile uint64 *)(addr))
 
-#define writeb(v, addr)                      \
-    {                                        \
-        (*(volatile uint8 *)(addr)) = (v); \
+#define writeb(v, addr)                     \
+    {                                       \
+        (*(volatile uint8 *)(addr)) = (v);  \
     }
-#define writew(v, addr)                       \
-    {                                         \
+#define writew(v, addr)                     \
+    {                                       \
         (*(volatile uint16 *)(addr)) = (v); \
     }
-#define writed(v, addr)                       \
-    {                                         \
+#define writed(v, addr)                     \
+    {                                       \
         (*(volatile uint32 *)(addr)) = (v); \
     }
-#define writeq(v, addr)                       \
-    {                                         \
+#define writeq(v, addr)                     \
+    {                                       \
         (*(volatile uint64 *)(addr)) = (v); \
     }

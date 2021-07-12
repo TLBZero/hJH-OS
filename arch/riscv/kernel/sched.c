@@ -14,12 +14,11 @@
 #include "fat32.h"
 #include "elf.h"
 #include "sysfile.h"
-
 struct task_struct* current;
 struct task_struct* nextTask;
 struct task_struct* task[NR_TASKS];
 
-long sec,nsec,flag;  //nanosleep所需参数
+long sec,nsec,flag;  // nanosleep所需参数
 static int fs_init = 0;
 
 extern void __switch_to(unsigned long long, unsigned long long);
@@ -31,7 +30,7 @@ extern uint64 kwalkaddr(pagetable_t kpt, uint64 va);
  * @brief 初始化进程0
  */
 void task_init(void){
-	task[0]=current=(struct task_struct*)TASK_VM_START;		//Task0 Base
+	task[0]=current=(struct task_struct*)TASK_START;		//Task0 Base
 	task[0]->state=TASK_READY;
 	task[0]->counter=1;
 	task[0]->priority=5;
@@ -54,11 +53,11 @@ void task_init(void){
 	task[0]->thread.sscratch = (void*)task[0]+PAGE_SIZE;
 
 	task[0]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-	task[0]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	task[0]->mm->pagetable = (uint64)kmalloc(PAGE_SIZE);
 	memcpy(task[0]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
 
 	uvmap(task[0], idle, PAGE_SIZE, 0);
-	create_mapping(task[0]->mm->pagetable, (USER_END-PAGE_SIZE), K_VA2PA((uint64)kmalloc(PAGE_SIZE)), PAGE_SIZE, PTE_R|PTE_W|PTE_U);
+	create_mapping(task[0]->mm->pagetable, (USER_END-PAGE_SIZE), (uint64)kmalloc(PAGE_SIZE), PAGE_SIZE, PTE_R|PTE_W|PTE_U);
 
 	/* FS */
 	procfile_init(task[0]);
@@ -76,7 +75,7 @@ struct task_struct* taskAlloc(){
 	int pid = alloc_pid();
 	if(pid<=0) return NULL;
 
-	task[pid]=(struct task_struct*)(TASK_VM_START+pid*TASK_SIZE);
+	task[pid]=(struct task_struct*)(TASK_START+pid*TASK_SIZE);
 	task[pid]->state=TASK_READY;
 	task[pid]->counter=rand();
 	task[pid]->priority=5;
@@ -95,12 +94,12 @@ struct task_struct* taskAlloc(){
 	initlock(&(task[pid]->lk), "proc");
 
 	task[pid]->mm = (struct mm_struct*)kmalloc(sizeof(struct mm_struct));
-	task[pid]->mm->pagetable = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	task[pid]->mm->pagetable = (uint64)kmalloc(PAGE_SIZE);
 	memset(task[pid]->mm->pagetable, 0, PAGE_SIZE);
 	memcpy(task[pid]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
 
 	do_mmap(task[pid]->mm, USER_END-PAGE_SIZE, PAGE_SIZE, PROT_READ|PROT_WRITE);
-	create_mapping(task[pid]->mm->pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+	create_mapping(task[pid]->mm->pagetable, USER_END-PAGE_SIZE, (uint64)kmalloc(PAGE_SIZE),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
 
 	task[pid]->xstate=-1;
 	task[pid]->chan=0;
@@ -125,20 +124,10 @@ void do_timer(int64 sstatus){
 	/* 新增-wdl */
 	time(sstatus);
 
-#ifdef SJF
 	printf("[PID = %d] Context Calculation: counter = %d\n",current->pid, current->counter);
 	if(!current->pid||current->counter<=0||--current->counter<=0){
 		schedule();
 	}
-
-#endif
-#ifdef PRIORITY
-	if(current->pid!=0&&(current->counter<=0||--current->counter<=0)){
-		task[current->pid]->counter=(8-current->pid>0)?8-current->pid:0;//if process ended, initialize it again
-		printf("[PID = %d] Reset counter = %d, priority = %d\n", current->pid, current->counter, current->priority);
-	}
-	schedule();
-#endif
 }
 
 /**
@@ -154,7 +143,7 @@ void schedule(void){
 	next=0;
 	prio=-1;
 	p=&task[NR_TASKS];
-#ifdef SJF
+	/* SJF */
 	for(int i=1;i<NR_TASKS;i++) if(task[i] && task[i]->state==TASK_READY&&task[i]->counter==0) {
 		task[i]->counter=rand();
 		printf("[PID = %d] Reset counter = %d\n",task[i]->pid, task[i]->counter);
@@ -166,28 +155,8 @@ void schedule(void){
 		}
 	}
 
-#endif
-#ifdef PRIORITY
-	while(--i){
-		if(!*(--p)) continue;
-		if((*p)->state==TASK_READY&&(*p)->counter>0){
-			if(c<0||prio>(*p)->priority) c=(*p)->counter,prio=(*p)->priority,next=i;//if p is the first non-empty one or p is prior than the last one, then choose it.
-			else if(prio==(*p)->priority){//else if p'priority equals the last one, compary the counter and choose the smaller one.
-				if(c>(*p)->counter) c=(*p)->counter,next=i;
-			}
-		}
-	}
-	if(c>=0)break;
-#endif
 	if(current!=task[next]) printf("[!] Switch from task %d to task %d, prio: %d, counter: %d\n",current->pid,task[next]->pid,task[next]->priority, task[next]->counter);
 
-#ifdef PRIORITY
-	printf("task's priority changed\n");
-	for(int i=1;i<=LAB_TEST_NUM;i++){
-		task[i]->priority=rand();
-		printf("[PID = %d] counter = %d priority = %d\n",task[i]->pid, task[i]->counter, task[i]->priority);
-	}
-#endif
 	nextTask = task[next];
 	switch_to();
 }
@@ -319,11 +288,11 @@ pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
 		parentVMA=parentVMA->vm_next;
 	}while(parentVMA!=current->mm->vma);
 
-	task[child]->mm->pagetable=K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+	task[child]->mm->pagetable=(uint64)kmalloc(PAGE_SIZE);
 	memcpy(task[child]->mm->pagetable, current->mm->pagetable, PAGE_SIZE);
 
 	if (!stack)
-		stack = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+		stack = (uint64)kmalloc(PAGE_SIZE);
 	else
 		stack = kwalkaddr(current->mm->pagetable, stack);
 	delete_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), PAGE_SIZE);
@@ -387,7 +356,7 @@ int exec(const char *path, char *const argv[], char *const envp[])
 	pagetable_t pagetable=NULL, oldpagetable;
 	int i, off;
 
-	if ((pagetable = (pagetable_t)K_VA2PA((uint64)kmalloc(PAGE_SIZE))) == NULL)
+	if ((pagetable = (pagetable_t)kmalloc(PAGE_SIZE)) == NULL)
 	{
 		return -1;
 	}
@@ -408,13 +377,13 @@ int exec(const char *path, char *const argv[], char *const envp[])
 			goto fail;
 		uint64 va = kmalloc(ph.memsz);
 
-		create_mapping(pagetable, ph.vaddr, K_VA2PA((uint64)kmalloc(ph.memsz)), ph.memsz, (ph.flags)|PTE_U|PTE_X);
+		create_mapping(pagetable, ph.vaddr, (uint64)kmalloc(ph.memsz), ph.memsz, (ph.flags)|PTE_U|PTE_X);
 		if (ph.vaddr % PAGE_SIZE != 0)
 			goto fail;
 		if (loadseg(pagetable, ph.vaddr, inode, ph.off, ph.filesz) < 0)
 			goto fail;
 	}
-	create_mapping(pagetable, USER_END-PAGE_SIZE, K_VA2PA((uint64)kmalloc(PAGE_SIZE)),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+	create_mapping(pagetable, USER_END-PAGE_SIZE, (uint64)kmalloc(PAGE_SIZE),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
 	
 	c_csr(sstatus, 0x100);
 	s_csr(sstatus, 0x40002);
@@ -537,7 +506,7 @@ int growtask(uint size){
 	int newsz = current->size + size;
 	if(newsz > oldsz){
 		for(newsz = PAGE_ROUNDUP(newsz);oldsz<newsz;oldsz+=PAGE_SIZE){
-			void *mem = K_VA2PA((uint64)kmalloc(PAGE_SIZE));
+			void *mem = (uint64)kmalloc(PAGE_SIZE);
 			if(!mem) return -1; // alloc fail
 			create_mapping(current->mm->pagetable, oldsz, mem, PAGE_SIZE, PTE_R|PTE_W|PTE_U);
 		}

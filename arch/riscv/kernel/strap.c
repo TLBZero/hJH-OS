@@ -18,7 +18,7 @@ void dumpInfo(){
 	r_csr(stval, stval);
 	r_reg(ra, ra);
 	r_reg(sp, sp);
-	printf("[PID]%d\n", current->pid);
+	printf("[Strap_dump!]Current Pid: %d\n", current->pid);
 	printf("[csrInfo]\nsstatus:%p\nsepc:%p\nscause:%p\nsie:%p\nsip:%p\nstval:%p\n", sstatus, sepc, scause, sie, sip, stval);
 	printf("[threadInfo]\nra:%p\nsp:%p\n", current->thread.sp, current->thread.ra);
 	printf("[procInfo]\nra:%p, sp:%p\n", current->thread.sp, current->thread.ra);
@@ -60,6 +60,7 @@ void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 		scause&=0x3f;
 		if(scause == S_TIME)
 			do_timer(sstatus);
+
 		#ifdef QEMU 
 		if (scause == 9) 
 		#else 
@@ -70,15 +71,13 @@ void strap_handler(int64 scause, int64 sepc, uintptr_t *regs, int64 sstatus){
 		{
 			int irq = plic_claim();
 			if (UART_IRQ == irq) {
-				// keyboard input, disabled
-				printf("keboard\n");
+				printf("Externel Interrupt: Keyboard\n");
 				int c = console_getchar();
-				if (-1 != c) {
+				if (-1 != c)
 					consoleintr(c);
-				}
 			}
 			else if (DISK_IRQ == irq) {
-				printf("disk\n");
+				printf("Externel Interrupt: Disk\n");
 				disk_intr();
 			}
 			else if (irq) {

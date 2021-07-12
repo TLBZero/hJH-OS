@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 12:25:36
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #ifndef _SLUB_H
 #define _SLUB_H
 
@@ -7,7 +15,7 @@
 
 #define NR_PARTIAL 9
 #define STRUCTURE_SIZE 16UL
-#define VM_START KERNEL_HIGH_BASE
+#define VM_START KERNEL_VM_BASE
 
 extern void *page_base;
 struct page {

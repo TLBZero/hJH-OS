@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 12:28:34
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #ifndef _BUDDY_H
 #define _BUDDY_H
 
@@ -11,10 +19,6 @@
 #define PARENT(index)       ((index - 1) / 2)
 
 #define IS_POW_OF_2(x) (!((x) & ((x)-1)))
-
-/* Convert between physical address and virtual address; valid only in kernel memory space; */
-#define K_VA2PA(va)  ((va)^(0xFFFFFFE080000000))
-#define K_PA2VA(pa)  ((pa)^(0xFFFFFFE080000000))
 
 #define BUDDY_BITMAP_SIZE (2*4096)
 

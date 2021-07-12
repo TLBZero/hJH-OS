@@ -3,7 +3,7 @@
 #include "put.h"
 #include "string.h"
 #include "sched.h"
-#define DEBUG
+// #define DEBUG
 union dentry {
     short_name_entry_t  sne;
     long_name_entry_t   lne;
@@ -109,9 +109,7 @@ int fat_init(){
         root.next->prev = de;
         root.next = de;
     }
-    #ifdef DEBUG
     printf("[fat_init]fat init done!\n");
-    #endif
     return 0;
 }
 

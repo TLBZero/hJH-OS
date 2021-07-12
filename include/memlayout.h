@@ -9,7 +9,7 @@
  * 
  */
 #pragma once
-//#define QEMU
+#define QEMU
 /**
  * @brief Some info about k210
  * 
@@ -37,32 +37,33 @@
  * 0x88000000 0x8801ffff ROM
  */
 
-#define PHY2VIRT(pa)  ((pa)^(0xFFFFFFE080000000UL))
 
-#define VIRT_OFFSET             0x3F00000000L
+#define VIRT_OFFSET     0x3F00000000L
 
 #ifndef QEMU
-#define SBIBASE         0x80000000UL
-#define SBISIZE         0x20000UL
-#define KERNELBASE      0x80020000UL
-#define KERNELEND       0x80200000UL
-#define KERNELSIZE      0x200000UL
+#define SBI_BASE        0x80000000UL
+#define SBI_SIZE        0x20000UL
+#define KERNEL_BASE     0x80020000UL
+#define KERNEL_END      0x80200000UL
+#define KERNEL_SIZE     0x200000UL
 #define MEM_END         0x80800000UL
-#define MEM_SIZE        (MEM_END-SBIBASE)
-#define TASK_VM_START   0xffffffe000100000L
+#define TASK_START      0x80100000UL
 #else
-#define SBIBASE         0x80000000UL
-#define SBISIZE         0x200000UL
-#define KERNELBASE      0x80200000UL
-#define KERNELEND       0x80400000UL
-#define KERNELSIZE      0x400000UL
+#define SBI_BASE        0x80000000UL
+#define SBI_SIZE        0x200000UL
+#define KERNEL_BASE     0x80200000UL
+#define KERNEL_END      0x80400000UL
+#define KERNEL_SIZE     0x400000UL
 #define MEM_END         0x80800000UL
-#define MEM_SIZE        (MEM_END-SBIBASE)
-#define TASK_VM_START   0xffffffe000300000L
+#define TASK_START      0x80300000UL
 #endif
-#define SBI_HIGH_BASE       (PHY2VIRT(SBIBASE))
-#define KERNEL_HIGH_BASE    (PHY2VIRT(KERNELBASE))
-#define MEM_HIGH_END        (PHY2VIRT(MEM_END))
+
+#define USER_END        0xffffffdf80000000UL
+
+#define MEM_SIZE        (MEM_END-SBI_BASE)
+#define SBI_VM_BASE         (SBI_BASE)
+#define KERNEL_VM_BASE      (KERNEL_BASE)
+#define MEM_VM_END          (MEM_END)
 
 #ifdef QEMU
 // virtio mmio interface
@@ -71,10 +72,10 @@
 #endif
 
 /* Under Coreplex */
-#define CLINT_P             (0x02000000UL)
-#define CLINT_BASE_ADDR     (CLINT_P + VIRT_OFFSET)
-#define PLIC_P              (0x0C000000UL)
-#define PLIC_BASE_ADDR      (PLIC_P + VIRT_OFFSET)
+#define CLINT_P                 (0x02000000UL)
+#define CLINT_BASE_ADDR         (CLINT_P + VIRT_OFFSET)
+#define PLIC_P                  (0x0C000000UL)
+#define PLIC_BASE_ADDR          (PLIC_P + VIRT_OFFSET)
 
 #define PLIC_PRIORITY           (PLIC_BASE_ADDR + 0x0)
 #define PLIC_PENDING            (PLIC_BASE_ADDR + 0x1000)

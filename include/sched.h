@@ -24,8 +24,6 @@
 #define PREEMPT_ENABLE  0
 #define PREEMPT_DISABLE 1
 
-/* Lab3中进程的数量 */
-#define LAB_TEST_NUM    0
 
 /* wait的option */
 #define WNOHANG       0

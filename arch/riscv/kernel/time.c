@@ -1,5 +1,14 @@
+/*
+ * @Author: wdl
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 11:34:42
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #include "time.h"
 #include "sched.h"
+#include "riscv.h"
 
 extern struct task_struct* current;
 extern struct task_struct* task[NR_TASKS];

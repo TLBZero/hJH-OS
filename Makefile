@@ -6,8 +6,8 @@ AR=${CROSS_}ar
 LD=${CROSS_}ld
 NM=${CROSS_}nm
 OBJCOPY=${CROSS_}objcopy
-PLATFORM=k210
-# PLATFORM=qemu
+# PLATFORM=k210
+PLATFORM=qemu
 MODE=release
 # MODE=debug
 
@@ -33,7 +33,7 @@ CF += -mcmodel=medany
 CF += -ffreestanding -fno-common -nostdlib -mno-relax
 CF += $(INCLUDE)
 CF += -march=$(ISA) -mabi=$(ABI) 
-CFLAG = ${CF} ${INCLUDE} -DSJF
+CFLAG = ${CF} ${INCLUDE}
 
 ifeq ($(MODE), debug)
 CFLAG += -DDEBUG
