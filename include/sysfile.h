@@ -23,11 +23,11 @@
 #define O_NOFOLLOW      00020000
 
 #define AT_FDCWD		    -100    /* Special value used to indicate
-                                        openat should use the current
-                                        working directory. */
+                                     * openat should use the current
+                                     * working directory. */
 #define AT_SYMLINK_NOFOLLOW	0x100   /* Do not follow symbolic links.  */
 #define AT_REMOVEDIR		0x200   /* Remove directory instead of
-                                    	unlinking file.  */
+                                     * unlinking file.  */
 #define AT_SYMLINK_FOLLOW	0x400   /* Follow symbolic links.  */
 #define AT_NO_AUTOMOUNT		0x800	/* Suppress terminal automount traversal */
 #define AT_EMPTY_PATH		0x1000	/* Allow empty relative pathname */
@@ -47,6 +47,8 @@
 #define READABLE        0x01
 #define WRITABLE        0x02
 #define READ_AND_WRITE  0x03
+
+struct task_struct;
 
 /* File Structure */
 struct file {
@@ -101,7 +103,7 @@ extern struct spinlock SysFLock;
 extern struct file SysFTable[SYSOFILENUM];
 
 void sysfile_init();
-// void procfile_init(struct task_struct* task);
+void procfile_init(struct task_struct* task);
 uint falloc();
 void frelease(struct file* file);
 int fread(struct file* file, void* dst, int num);

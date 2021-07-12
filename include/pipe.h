@@ -1,9 +1,17 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 14:02:16
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #ifndef __PIPE_H
 #define __PIPE_H
 
 #include "types.h"
 #include "spinlock.h"
-#include "sysfile.h"
+struct file;
 
 #define PIPESIZE 512
 #define SZ 4096

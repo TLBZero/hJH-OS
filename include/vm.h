@@ -2,7 +2,7 @@
  * @Author: Yinwhe
  * @Date: 2021-07-10 20:06:58
  * @LastEditors: Yinwhe
- * @LastEditTime: 2021-07-12 12:27:15
+ * @LastEditTime: 2021-07-12 14:12:26
  * @Description: file information
  * @Copyright: Copyright (c) 2021
  */
@@ -11,6 +11,9 @@
 #include "slub.h"
 #include "buddy.h"
 #include "types.h"
+
+struct task_struct;
+struct mm_struct;
 
 /* Page Relevant */
 #define PAGE_SHIFT 12
@@ -60,7 +63,8 @@ void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz);
 pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc);
 uint64 kwalkaddr(pagetable_t kpt, uint64 va);;
 
-// int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned);
+int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned);
+void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot);
 int munmap(void *start, size_t len);
 void *mmap(void *start, size_t len, int prot, int flags,
                   int fd, off_t off);

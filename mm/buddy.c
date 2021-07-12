@@ -86,10 +86,10 @@ void *alloc_pages(int num)
 
 /**
  * @brief This function will free VA and merge it back;
- * @param VA: Virtual Address to be freed.
+ * @param va: Virtual Address to be freed.
  */
-void free_pages(void * VA){
-    int index = get_X_of_va(VA)+Buddy.size-1;
+void free_pages(void * va){
+    int index = get_X_of_va(va)+Buddy.size-1;
     int currentSize = 1;
     while(Buddy.bitmap[index]) index=PARENT(index), currentSize*=2;
     Buddy.bitmap[index]=currentSize;

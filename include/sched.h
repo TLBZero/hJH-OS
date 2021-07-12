@@ -82,14 +82,14 @@ struct mm_struct {
 
 /* 进程数据结构 */
 struct task_struct {
-    long state;    // 进程状态
-    long counter;  // 运行剩余时间 
-    long priority; // 运行优先级 1最高 5最低
-    long blocked;
-    long pid;      // 进程标识符
-    long ppid;
-    long xstate;
-    long size;
+    int64 state;    // 进程状态
+    int64 counter;  // 运行剩余时间 
+    int64 priority; // 运行优先级 1最高 5最低
+    int64 blocked;
+    int64 pid;      // 进程标识符
+    int64 ppid;
+    int64 xstate;
+    int64 size;
     struct thread_struct thread; // 该进程状态段
 
     pid_t tid;
@@ -122,6 +122,9 @@ void schedule(void);
 /* 切换当前任务current到下一个任务next */
 void switch_to();
 
+/* 初始化用户程序 */
+void user_init();
+
 /* 测试 */
 void task_test(void);
 
@@ -133,6 +136,9 @@ void sleep(void*, struct spinlock*);
 
 /* 唤醒拥有同一把锁的进程 */
 void wakeup(void*);
+
+/* 分配PID */
+int alloc_pid();
 
 /* 返回当前进程的pid*/
 long getpid(void);

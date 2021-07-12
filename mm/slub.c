@@ -191,7 +191,6 @@ void *cache_create(const char *name, size_t size, unsigned int aligns, int flags
 void *cache_alloc_pages(struct kmem_cache *cache)
 {
 	void *p;
-	void *tp;
 	struct page *page;
 
 	p = alloc_pages(cache->nr_page_per_slub);
@@ -202,7 +201,7 @@ void *cache_alloc_pages(struct kmem_cache *cache)
 
 	memset(p, 0, (cache->nr_page_per_slub) << PAGE_SHIFT);
 	set_page_attr(p, cache->nr_page_per_slub, PAGE_SLUB);
-	tp = init_object_list(p, cache->size, ((cache->nr_page_per_slub)<< PAGE_SHIFT));
+	init_object_list(p, cache->size, ((cache->nr_page_per_slub)<< PAGE_SHIFT));
 	cache->freelist = p; 
 	page = ADDR_TO_PAGE(p);
 	page->slub = cache;
@@ -246,7 +245,6 @@ kmem_cache_create(const char *name, size_t size,
 					unsigned int aligns, int flags, void* func(void *))
 {
 	struct kmem_cache *s = NULL;
-	const char *cache_name;
 
 	s = cache_create(name, size, aligns, flags, func);
 	#ifdef DEBUG
@@ -314,7 +312,6 @@ kmem_cache_free(void *obj)
 {
 	struct page *page = ADDR_TO_PAGE(obj)->header;
 	struct kmem_cache *s;	
-	void *p;
 
 	s = page->slub;
 	if(page->freelist == NULL){
@@ -367,7 +364,7 @@ void *kmalloc(size_t size)
     return p;
 }
 
-void kfree(const void *addr)
+void kfree(void *addr)
 {
     struct page *page;
 

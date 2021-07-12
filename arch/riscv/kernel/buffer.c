@@ -74,6 +74,7 @@ static struct buffer_head *getblk(int dev, int block)
             return bh;
         }
     panic("getblk error, no free buffer found!");
+    return NULL;
 }
 
 static void inline liftBuffer(struct buffer_head *bh)

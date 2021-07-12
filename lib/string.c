@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 13:58:19
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #include "string.h"
 #include "types.h"
 #include "put.h"
@@ -10,7 +18,7 @@ void *memset(void *dst, int init, uint num)
     return dst;
 }
 
-void *memcpy(void *dst, void *src, uint size){
+void *memcpy(void *dst, const void *src, uint size){
     char *dst_tp = (char *) dst;
     char *src_tp = (char *) src;
     for(uint i = 0; i < size; i++)
@@ -19,9 +27,10 @@ void *memcpy(void *dst, void *src, uint size){
 };
 
 
-void* memmove(void *dst, const void *src, uint n){
+void* memmove(void *dst, void *src, uint n){
     memcpy(dst, src, n);
     memset(src, 0, n);
+    return dst;
 }
 
 char* strcpy(char* dst, const char* src){
@@ -37,12 +46,12 @@ char* strncpy(char *dst, const char *src, int n){
     return dst;
 }
 
-char* strchr(const char *s, char c)
+char* strchr(char *s, char c)
 {
     while(*s != '\0' && *s != c){
         ++s;
     }
-    return *s==c ? s : NULL;
+    return ((*s)==c) ? s : NULL;
 }
 
 int strlen(const char *str){

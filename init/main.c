@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 13:16:28
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #include "riscv.h"
 #include "put.h"
 #include "vm.h"
@@ -10,8 +18,11 @@
 #include "sysfile.h"
 #include "console.h"
 #include "sdcard.h"
-volatile static int started = 0;
+
 extern void idle();
+extern void env_init();
+
+volatile static int started = 0;
 static inline void inithartid(unsigned long hartid) {
 	asm volatile("mv tp, %0" : : "r" (hartid & 0x1));
 }

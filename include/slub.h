@@ -2,7 +2,7 @@
  * @Author: Yinwhe
  * @Date: 2021-07-10 20:06:58
  * @LastEditors: Yinwhe
- * @LastEditTime: 2021-07-12 12:25:36
+ * @LastEditTime: 2021-07-12 13:28:27
  * @Description: file information
  * @Copyright: Copyright (c) 2021
  */
@@ -74,6 +74,6 @@ void kmem_cache_free(void *);
 
 
 void *kmalloc(size_t);
-void kfree(const void *);
+void kfree(void *);
 
 #endif

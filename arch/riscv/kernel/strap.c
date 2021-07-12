@@ -7,6 +7,7 @@
 #include "plic.h"
 #include "rustsbi.h"
 #include "vm.h"
+#include "disk.h"
 
 void dumpInfo(){
 	uint64 sstatus, sepc, scause, sie, sip, stval, ra, sp;

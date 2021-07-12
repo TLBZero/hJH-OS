@@ -18,10 +18,11 @@ pagetable_t kernel_pagetable=NULL;
 pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc){
     for(int level = 2; level > 0; level--){
         pte_t* pte = &pagetable[PX(level, va)];
-        if(*pte & PTE_V) pagetable = (pte_t*)PTE2PA(*pte);//if address is valid, pagetable <- next pagetable
+        if(*pte & PTE_V)
+            pagetable = (pte_t*)PTE2PA(*pte);
         else{//or we need to add this pagetable
             if(!alloc || ((pagetable = (pde_t *)alloc_pages(1)) == 0)) 
-                return 0;//error, either because alloc=0 or kframe_alloc fails.
+                return NULL;//error, either because alloc=0 or kframe_alloc fails.
             *pte = PA2PTE(pagetable) | PTE_V;
         }
     }
@@ -44,6 +45,7 @@ uint64 kwalkaddr(pagetable_t kpt, uint64 va)
     pte = walk(kpt, va, 0);
     if(pte == 0) panic("kvmpa");
     if((*pte & PTE_V) == 0) panic("kvmpa");
+
     pa = PTE2PA(*pte);
     return pa+off;
 }
@@ -57,26 +59,33 @@ uint64 kwalkaddr(pagetable_t kpt, uint64 va)
  */
 void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
     if(sz==0) return;
+
     uint64 pgStart = PAGE_ROUNDDOWN(va);
     uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
     while(pgStart<=pgEnd){
-        pte_t* pte=walk(pgtbl, pgStart, 1);
-        if(pte==0) panic("walk error, overflow!");
-        else if(*pte & PTE_V) panic("walk error, remap!");
+        pte_t* pte = walk(pgtbl, pgStart, 1);
+        if(pte==0)
+            panic("walk error, overflow!");
+        else if(*pte & PTE_V)
+            panic("walk error, remap!");
         else *pte = PA2PTE(pa) | PTE_V | perm;
-        pgStart+=PAGE_SIZE;
-        pa+=PAGE_SIZE;
+
+        pgStart += PAGE_SIZE;
+        pa += PAGE_SIZE;
     }
 }
 
 void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz){
     if(sz==0) return;
+
     uint64 pgStart = PAGE_ROUNDDOWN(va);
     uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
     while(pgStart<=pgEnd){
-        pte_t* pte=walk(pgtbl, pgStart, 0);
-        if(pte==0) panic("delete_mapping error, pte already 0!");
+        pte_t* pte = walk(pgtbl, pgStart, 0);
+        if(pte==0)
+            panic("delete_mapping error, pte already 0!");
         else *pte = 0;
+
         pgStart+=PAGE_SIZE;
     }
 }
@@ -90,7 +99,7 @@ void paging_init(){
     sysctl_clock_enable(SYSCTL_CLOCK_PLL1);
     #endif
     /* Initialize memory space */
-    memset((uint64)_end, 0, MEM_END-(uint64)_end);
+    memset((void*)_end, 0, MEM_END-(uint64)_end);
     init_buddy_system();
 
     kernel_pagetable = (pagetable_t)alloc_pages(1);
@@ -158,13 +167,15 @@ void paging_init(){
 }
 
 unsigned long get_unmapped_area(size_t length){
-    void *start=0;
-    int i,n=(length>>PAGE_SHIFT);
+    void *start = 0;
+    int i, n = (length>>PAGE_SHIFT);
     while(1){
         for(i=0;i<n;i++){
-            if((((uint64)walk(current->mm->pagetable, start+PAGE_SIZE*i, 0))&PTE_V)==0) break;
+            if((((uint64)walk(current->mm->pagetable, start+PAGE_SIZE*i, 0))&PTE_V)==0)
+                break;
         }
         if(i==n) break;
+
         start=start+PAGE_SIZE*(i+1);
     } 
     return start;
@@ -176,7 +187,8 @@ void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
     size_t alength = PAGE_ROUNDUP(len);
     int i;
     for(i=0;i<(alength>>PAGE_SHIFT);i++){
-        if(((uint64) walk(mm->pagetable, astart+PAGE_SIZE*i, 0))&PTE_V != 0) break;
+        if(((uint64) walk(mm->pagetable, astart+PAGE_SIZE*i, 0))&PTE_V != 0)
+            break;
     }
     if(i!=(alength>>PAGE_SHIFT)) astart=get_unmapped_area(alength);
 
@@ -225,6 +237,7 @@ void *mmap(void *start, size_t len, int prot, int flags,
         return start;
     }
 }
+
 
 void free_page_tables(uint64 pagetable, uint64 va, uint64 n, int free_frame){
     pte_t* pte;

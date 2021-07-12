@@ -1,9 +1,16 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 13:09:25
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #pragma once
 #include "types.h"
 #include "sleeplock.h"
 
 #define BSIZE 512
-#define BUFNR 50
 
 
 struct buffer_head {

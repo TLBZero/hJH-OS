@@ -1,3 +1,11 @@
+/*
+ * @Author: Yinwhe
+ * @Date: 2021-07-10 20:06:58
+ * @LastEditors: Yinwhe
+ * @LastEditTime: 2021-07-12 13:08:36
+ * @Description: file information
+ * @Copyright: Copyright (c) 2021
+ */
 #pragma once
 #include "riscv.h"
 
@@ -14,7 +22,6 @@
 #define BUFNR        (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 #define MAXPATH      260   // maximum file path name
-#define INTERVAL     (390000000 / 200) // timer interrupt interval
 
 static inline void intr_on(){
     s_csr(sstatus, SSTATUS_SIE);
