@@ -192,24 +192,17 @@ void first_switch_to(){
 }
 
 void task_test(){
-	char a[8];
-	a[0] = 'e';
-	a[1] = 'x';
-	a[2] = 'e';
-	a[3] = 't';
-	a[4] = 'e';
-	a[5] = 's';
-	a[6] = 't';
-	a[7] = '\0';
+	char a[24];
+	a[0]='/';a[1]='e';a[2]='n';a[3]='t';a[4]='r';a[5]='y';a[6]='d';a[7]='i';a[8]='r';
+	a[9]='/';a[10]='o';a[11]='n';a[12]='e';a[13]='M';a[14]='o';a[15]='r';a[16]='e';
+	a[17]='/';a[18]='h';a[19]='e';a[20]='l';a[21]='l';a[22]='o';a[23]='\0';
 	register uint64 a0 asm("a0") = 0;
 	register uint64 a1 asm("a1") = 0;
 	register uint64 a2 asm("a2") = 0;
 	register uint64 a3 asm("a3") = 0;
 	register uint64 a4 asm("a4") = 0;
-	register uint64 syscall_id asm("a7") = 220;
-	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
+	register uint64 syscall_id asm("a7") = 221;
 	a0 = a;
-	syscall_id = 221;
 	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
 	while(1);
 }

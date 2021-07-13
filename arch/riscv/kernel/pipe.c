@@ -39,8 +39,8 @@ int pipealloc(int *sfd0, int *sfd1)
 
     bad:
     if(pi) kfree((char*)pi);
-    if(sfd0!=-1) frelease(&SysFTable[*sfd0]);
-    if(sfd1!=-1) frelease(&SysFTable[*sfd1]);
+    if((*sfd0)!=-1) frelease(&SysFTable[*sfd0]);
+    if((*sfd1)!=-1) frelease(&SysFTable[*sfd1]);
     return -1;
 }
 

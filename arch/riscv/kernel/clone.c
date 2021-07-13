@@ -24,7 +24,7 @@ void forket(){
 /**
  * 复制一个进程
  */
-pid_t clone(int flag, void *stack, pid_t ptid, void *tls, pid_t ctid)
+pid_t clone(int flag, void *stack, pid_t* ptid, void *tls, pid_t* ctid)
 {
 	int child=alloc_pid();
 	if (child < 0) return -1;

@@ -102,16 +102,16 @@ struct devsw {
 extern struct spinlock SysFLock;
 extern struct file SysFTable[SYSOFILENUM];
 
-void sysfile_init();
-void procfile_init(struct task_struct* task);
-uint falloc();
-void frelease(struct file* file);
-int fread(struct file* file, void* dst, int num);
-int fwrite(struct file* file, void* src, int num);
+void	sysfile_init();
+void 	procfile_init(struct task_struct* task);
+uint 	falloc();
+void 	frelease(struct file* file);
+int 	fread(struct file* file, void* dst, int num);
+int 	fwrite(struct file* file, void* src, int num);
 struct dirent* fcreate(char *pathname, uint type, uint flags);
 struct file* fdup(struct file* file);
-void fseek(struct file* file, uint pos);
-int dirnext(struct file *file, struct dirent* ep);
+void 	fseek(struct file* file, uint pos);
+int 	dirnext(struct file *file, struct dirent* ep);
 
 /* syscall in fs */ 
 char *sys_getcwd(uintptr_t *regs);

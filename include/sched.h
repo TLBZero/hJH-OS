@@ -38,6 +38,8 @@ extern struct task_struct *current;
 /* 进程指针数组 */
 extern struct task_struct * task[NR_TASKS];
 
+struct timespec;
+
 /* 进程状态段数据结构 */
 struct thread_struct {
     uint64 sepc;

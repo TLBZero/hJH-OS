@@ -2,7 +2,7 @@
  * @Author: Yinwhe
  * @Date: 2021-07-10 20:06:58
  * @LastEditors: Yinwhe
- * @LastEditTime: 2021-07-12 13:24:23
+ * @LastEditTime: 2021-07-14 00:33:45
  * @Description: file information
  * @Copyright: Copyright (c) 2021
  */
@@ -10,13 +10,13 @@
 
 #include "types.h"
 
-int   memcmp(const void*, const void*, uint);
-void* memset(void *dst, int c, uint n);
-void* memmove(void *dst, void *src, uint n);
-void* memcpy(void *dst, const void *src, uint size);
+void* memset(void *dst, int c, size_t n);
+void* memmove(void *dst, void *src, size_t n);
+void* memcpy(void *dst, const void *src, size_t n);
 
-int   strlen(const char* str);
-char* strcpy(char* dst, const char* src);
-char* strncpy(char *dst, const char *src, int n);
-char* strchr(char *str, char c);
-int   strncmp(const char *str1, const char *str2, int n);
+uint64  strlen(const char* str);
+char*   strcpy(char* dst, const char* src);
+char*   strncpy(char *dst, const char *src, int64 n);
+char*   strchr(char *str, char c);
+int     strcmp(const char *str1, const char *str2);
+int     strncmp(const char *str1, const char *str2, int64 n);

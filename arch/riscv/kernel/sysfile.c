@@ -107,7 +107,7 @@ int locate_fd(){
     acquire(&current->lk);
     for(; res<PROCOFILENUM; res++)
         if(current->FTable[res]==NULL){
-            current->FTable[res] = 1;
+            current->FTable[res] = (struct file *)1;
             release(&current->lk);
             return res;
         }
@@ -158,7 +158,7 @@ int fread(struct file* file, void* dst, int num){
     switch(file->f_type){
         case DT_REG:{
             acquiresleep(&file->f_entry->lock);
-            r = eread(file->f_entry, dst, file->f_pos, num);
+            r = eread(file->f_entry, (uint64)dst, file->f_pos, num);
             if(r>0) file->f_pos += r; // Move file pointer
             releasesleep(&file->f_entry->lock);
             break;
@@ -170,7 +170,7 @@ int fread(struct file* file, void* dst, int num){
         case DT_CHR:{
             if(file->major < 0 || file->major >= NDEV ||!devsw[file->major].read)
                 return -1;
-            r = devsw[file->major].read(0, dst, num);
+            r = devsw[file->major].read(0, (uint64)dst, num);
             break;
         }
         default:panic("fread error, unknow file type!");break;
@@ -196,7 +196,7 @@ int fwrite(struct file* file, void* src, int num){
     switch (file->f_type){
         case DT_REG:{
             acquiresleep(&file->f_entry->lock);
-            w = ewrite(file->f_entry, src, file->f_pos, num);
+            w = ewrite(file->f_entry, (uint64)src, file->f_pos, num);
             if(w>0) file->f_pos+=w;
             releasesleep(&file->f_entry->lock);
             break;
@@ -208,7 +208,7 @@ int fwrite(struct file* file, void* src, int num){
         case DT_CHR:{
             if(file->major < 0 || file->major >= NDEV ||!devsw[file->major].write)
                 return -1;
-            w = devsw[file->major].write(0, src, num);
+            w = devsw[file->major].write(0, (uint64)src, num);
             break;
         }
         default:panic("fwrite error, unknow file type!");break;
@@ -414,7 +414,7 @@ int sys_chdir(uintptr_t *regs){
  * @param mode Unused
  * @return 打开或创建文件的文件描述符，如失败则返回-1
  */
-int open(char *pathname, int flags, mode_t mode){
+int open(const char *pathname, int flags, mode_t mode){
     int len = strlen(pathname);
     if(len<=0||len>FAT32_MAX_PATH)
         return -1;
@@ -564,7 +564,7 @@ int sys_write(uintptr_t *regs){
  * @param mode Unused
  * @return 创建成功则返回0，否则返回-1
  */
-int mkdir(char *pathname, mode_t mode){
+int mkdir(const char *pathname, mode_t mode){
     int len = strlen(pathname);
     if(len<=0||len>FAT32_MAX_PATH)
         return -1;

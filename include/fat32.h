@@ -4,35 +4,35 @@
 #include "sleeplock.h"
 
 /* Attributions */
-#define ATTR_READ_ONLY      0x01
-#define ATTR_HIDDEN         0x02
-#define ATTR_SYSTEM         0x04
-#define ATTR_VOLUME_ID      0x08
-#define ATTR_DIRECTORY      0x10
-#define ATTR_ARCHIVE        0x20
-#define ATTR_LONG_NAME      0x0F
+#define ATTR_READ_ONLY      0x01UL
+#define ATTR_HIDDEN         0x02UL
+#define ATTR_SYSTEM         0x04UL
+#define ATTR_VOLUME_ID      0x08UL
+#define ATTR_DIRECTORY      0x10UL
+#define ATTR_ARCHIVE        0x20UL
+#define ATTR_LONG_NAME      0x0FUL
 
 /* Cluster Marks */
-#define BAD_CLUSTER         0x0FFFFFF7
-#define FAT32_EOC           0x0FFFFFF8
-#define EOC                 0x0FFFFFFF
+#define BAD_CLUSTER         0x0FFFFFF7UL
+#define FAT32_EOC           0x0FFFFFF8UL
+#define EOC                 0x0FFFFFFFUL
 
 /* Dir Marks */
-#define DIR_ENTRY_FREE      0xE5
-#define DIR_ENTRY_END       0x00
+#define DIR_ENTRY_FREE      0xE5UL
+#define DIR_ENTRY_END       0x00UL
 
 /* Some other Specifications */
-#define ENTRY_MASK          0x0FFFFFFF
-#define ENTRY_CACHE_NUM     50
+#define ENTRY_MASK          0x0FFFFFFFUL
+#define ENTRY_CACHE_NUM     50UL
 
-#define LONG_NAME_LEN       13
-#define SHORT_NAME_LEN      11
-#define LAST_LONG_ENTRY     0x40
+#define LONG_NAME_LEN       13UL
+#define SHORT_NAME_LEN      11UL
+#define LAST_LONG_ENTRY     0x40UL
 
-#define FAT32_MAX_FILENAME  255
-#define FAT32_MAX_PATH      260
-#define FAT32_MAX_FILESIZE  0x100000000
-#define ENTRY_CACHE_NUM     50
+#define FAT32_MAX_FILENAME  255UL
+#define FAT32_MAX_PATH      260UL
+#define FAT32_MAX_FILESIZE  0x100000000UL
+#define ENTRY_CACHE_NUM     50UL
 
 /* This struct only exist in memory, not in disk */
 struct dirent {

@@ -166,24 +166,24 @@ void paging_init(){
     return;
 }
 
-unsigned long get_unmapped_area(size_t length){
+uint64 get_unmapped_area(size_t length){
     void *start = 0;
     int i, n = (length>>PAGE_SHIFT);
     while(1){
         for(i=0;i<n;i++){
-            if((((uint64)walk(current->mm->pagetable, start+PAGE_SIZE*i, 0))&PTE_V)==0)
+            if((((uint64)walk(current->mm->pagetable, (uint64)start+PAGE_SIZE*i, 0))&PTE_V)==0)
                 break;
         }
         if(i==n) break;
 
         start=start+PAGE_SIZE*(i+1);
     } 
-    return start;
+    return (uint64)start;
 }
 
 void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
     //Code to fetch an non-mapped address
-    void *astart=start;
+    uint64 astart= (uint64)start;
     size_t alength = PAGE_ROUNDUP(len);
     int i;
     for(i=0;i<(alength>>PAGE_SHIFT);i++){
@@ -212,7 +212,7 @@ void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
     #ifdef DEBUG
     printf("[S] New vm_area_struct: start %p, end %p, prot [r:%d,w:%d,x:%d]\n",newVMA->vm_start, newVMA->vm_end, (prot&PROT_READ)!=0, (prot&PROT_WRITE)!=0, (prot&PROT_EXEC)!=0);
     #endif
-    return astart;
+    return (void*)astart;
 }
 
 void *mmap(void *start, size_t len, int prot, int flags,
@@ -239,7 +239,7 @@ void *mmap(void *start, size_t len, int prot, int flags,
 }
 
 
-void free_page_tables(uint64 pagetable, uint64 va, uint64 n, int free_frame){
+void free_page_tables(pagetable_t pagetable, uint64 va, uint64 n, int free_frame){
     pte_t* pte;
     uint64 pa;
     for(int i=0;i<n;i++){
@@ -247,7 +247,8 @@ void free_page_tables(uint64 pagetable, uint64 va, uint64 n, int free_frame){
         pa = PTE2PA(*pte)+VA_OFFSET(va);
         *pte=0;
 
-        if(free_frame) kfree(pa);//Free frames
+        if(free_frame)
+            kfree((void*)pa);//Free frames
         va+=PAGE_SHIFT;
     }
     return;
@@ -264,7 +265,7 @@ int munmap(void *start, size_t len)
     do {
         if (vma->vm_start==start&&vma->vm_end==end)
         {
-            va=start;
+            va=(uint64)start;
             free_page_tables(current->mm->pagetable, va, alength>>PAGE_SHIFT, 1);
             struct vm_area_struct *next = vma->vm_next;
             struct vm_area_struct *prev = vma->vm_prev;
@@ -303,11 +304,11 @@ int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned){
         mem = kmalloc(PAGE_ROUNDUP(size));
         memcpy(mem, src, size);
     }else{
-        mem = kwalkaddr(utask->mm->pagetable, src);
+        mem = (void*)kwalkaddr(utask->mm->pagetable, (uint64)src);
     }
 
 	do_mmap(utask->mm, 0, size, PROT_READ|PROT_WRITE|PROT_EXEC);
-    create_mapping(utask->mm->pagetable, 0, mem, size, PTE_R|PTE_W|PTE_X|PTE_U);
+    create_mapping(utask->mm->pagetable, 0, (uint64)mem, size, PTE_R|PTE_W|PTE_X|PTE_U);
     utask->size = size;
     
     return 0;

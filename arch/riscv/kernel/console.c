@@ -67,7 +67,7 @@ int consolewrite(int user_src, uint64 src, int n)
 	acquire(&cons.lock);
 	for (i = 0; i < n; i++)
 	{
-		if (either_copy(user_src, &c, src + i, 1) == -1)
+		if (either_copy(user_src, &c, (void*)(src + i), 1) == -1)
 			break;
 		console_putchar(c);
 	}
@@ -118,7 +118,7 @@ int consoleread(int user_dst, uint64 dst, int n)
 
 		// copy the input byte to the user-space buffer.
 		cbuf = c;
-		if (either_copy(user_dst, dst, &cbuf, 1) == -1)
+		if (either_copy(user_dst, (void *)dst, &cbuf, 1) == -1)
 			break;
 
 		dst++;

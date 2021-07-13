@@ -30,7 +30,7 @@ INCLUDE = -I ../include -I ../../../include
 CF += $(INCLUDE)
 CF += -march=$(ISA) -mabi=$(ABI) 
 CF += -nostartfiles -nostdlib -nostdinc
-CF += -static -lgcc -Wall
+CF += -static -lgcc
 # CF = -Wall -fno-omit-frame-pointer
 # CF += -MD
 CF += -mcmodel=medany

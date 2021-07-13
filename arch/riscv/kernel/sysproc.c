@@ -28,9 +28,9 @@ long sys_clone(uintptr_t *regs)
  */
 long sys_execve(uintptr_t *regs)
 {
-    char *path=regs[REG_A(0)];
-    char **argv=regs[REG_A(1)];
-    char **envp=regs[REG_A(2)];
+    char *path=(char *)  regs[REG_A(0)];
+    char **argv=(char **)regs[REG_A(1)];
+    char **envp=(char **)regs[REG_A(2)];
     long ret = exec(path, argv, envp);
     return ret;
 }
@@ -93,7 +93,7 @@ long sys_mmap(uintptr_t *regs)
     int flags=regs[REG_A(3)];
     int fd=regs[REG_A(4)];
     off_t off=regs[REG_A(5)];
-    return mmap(start, len, prot, flags, fd, off);
+    return (long)mmap(start, len, prot, flags, fd, off);
 }
 
 /**
