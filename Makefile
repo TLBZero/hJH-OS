@@ -23,16 +23,19 @@ QEMUOPTS += -bios $(RUSTSBI)
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
-ISA ?= rv64g
+ISA ?= rv64imafd
 ABI ?= lp64
 
 INCLUDE = -I ../include -I ../../../include
-CF = -Wall -O -fno-omit-frame-pointer -ggdb -g
-CF += -MD
-CF += -mcmodel=medany
-CF += -ffreestanding -fno-common -nostdlib -mno-relax
 CF += $(INCLUDE)
 CF += -march=$(ISA) -mabi=$(ABI) 
+CF += -nostartfiles -nostdlib -nostdinc
+CF += -static -lgcc -Wall
+# CF = -Wall -fno-omit-frame-pointer
+# CF += -MD
+CF += -mcmodel=medany
+CF += -ffunction-sections -fdata-sections
+CF += -ggdb -g
 CFLAG = ${CF} ${INCLUDE}
 
 ifeq ($(MODE), debug)

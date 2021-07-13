@@ -183,47 +183,35 @@ void first_switch_to(){
 		fs_init = 1;
 		fat_init();
 	}
-	asm("li t0, 0x100;\
-		 csrc sstatus, t0;\
-		 li t0, 0x40002;\
-		 csrs sstatus, t0;\
-		 csrw sepc, x0;\
+	asm("li t0, 0x100;     \
+		 csrc sstatus, t0; \
+		 li t0, 0x40002;   \
+		 csrs sstatus, t0; \
+		 csrw sepc, x0;    \
 		 sret");
 }
 
-
 void task_test(){
-	uint64 _a0 = 1;
-	uint64 _a1 = 0;
-	uint64 _a2 = 0;
-	uint64 _a3 = 0;
-	uint64 _a4 = 0;
-	register uint64 a0 asm("a0") = _a0;
-	register uint64 a1 asm("a1") = _a1;
-	register uint64 a2 asm("a2") = _a2;
-	register uint64 a3 asm("a2") = _a3;
-	register uint64 a4 asm("a2") = _a4;
-	register long syscall_id asm("a7") = 220;
-	// char a[7];
-	// a[0]='h';
-	// a[1]='e';
-	// a[2]='l';
-	// a[3]='l';
-	// a[4]='o';
-	// a[5]='\0';
-	// a[6]='\0';
-	// a0 = 1;
-	// a1 = a;
-	// a2 = 8;
-	// a3 = _a3;
-	// a4 = _a4;
-	// syscall_id = 64;
+	char a[8];
+	a[0] = 'e';
+	a[1] = 'x';
+	a[2] = 'e';
+	a[3] = 't';
+	a[4] = 'e';
+	a[5] = 's';
+	a[6] = 't';
+	a[7] = '\0';
+	register uint64 a0 asm("a0") = 0;
+	register uint64 a1 asm("a1") = 0;
+	register uint64 a2 asm("a2") = 0;
+	register uint64 a3 asm("a3") = 0;
+	register uint64 a4 asm("a4") = 0;
+	register uint64 syscall_id asm("a7") = 220;
 	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
+	a0 = a;
+	syscall_id = 221;
 	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
-	// fat_init();
-	// btest();
-	// test_sdcard();
-	while(1);
+	// while(1);
 }
 
 /**
