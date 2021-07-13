@@ -16,7 +16,7 @@
 #include "sysfile.h"
 #include "rand.h"
 #include "exec.h"
-
+#define DEBUG
 int loadseg(pagetable_t pagetable, uint64 va, struct dirent *ip, uint offset, uint filesz) 
 {
 	uint64 pa;

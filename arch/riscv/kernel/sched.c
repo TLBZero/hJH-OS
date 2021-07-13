@@ -211,7 +211,7 @@ void task_test(){
 	a0 = a;
 	syscall_id = 221;
 	asm volatile ("ecall" : "+r"(a0) : "r"(a1), "r"(a2), "r"(syscall_id));
-	// while(1);
+	while(1);
 }
 
 /**

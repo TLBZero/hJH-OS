@@ -110,6 +110,7 @@ int fat_init(){
         root.next = de;
     }
     printf("[fat_init]fat init done!\n");
+    // fat_test();
     return 0;
 }
 
@@ -1012,7 +1013,7 @@ struct dirent* enameparent(char* path, char* name){
  */
 int epath(struct dirent* ep, char *buf, uint size){
     if(!ep || !buf || !size) return -1;
-
+    
     char path[FAT32_MAX_PATH];
     memset(path, 0, FAT32_MAX_PATH);
     char *s=path+FAT32_MAX_PATH-1;
@@ -1103,6 +1104,11 @@ void fat_test(){
     //     printf("%x", buf[i-1]);
     //     if(i%16==0) printf("\n");
     // }
+
+    // struct dirent *ep = ename("/entrydir/oneMore/target");
+    // char buf[FAT32_MAX_PATH];
+    // epath(ep, buf, FAT32_MAX_PATH);
+    // printf("buf:%s\n", buf);
     // printf("[fat_test]done!\n");
-    // while(1);
+    while(1);
 }

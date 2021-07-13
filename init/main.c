@@ -2,7 +2,7 @@
  * @Author: Yinwhe
  * @Date: 2021-07-10 20:06:58
  * @LastEditors: Yinwhe
- * @LastEditTime: 2021-07-13 10:13:21
+ * @LastEditTime: 2021-07-13 10:38:08
  * @Description: file information
  * @Copyright: Copyright (c) 2021
  */
@@ -46,8 +46,8 @@ void start_kernel(unsigned long hartid)
 		disk_init();
 		binit();
 		sysfile_init();
-		timer_init();
 		user_init();
+		timer_init();
 		__sync_synchronize();
 		started = 1;
 		idle();

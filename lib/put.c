@@ -54,11 +54,12 @@ void printf_init(){
     printf("[printf]printf init down!\n", &printlock);
 }
 
-void printf(char *fmt, ...)
+int printf(char *fmt, ...)
 {
     if(printlocking) acquire(&printlock);
     va_list ap;
     va_start(ap, fmt);
+    int cnt = 0;
     while (*fmt)
     {
         if (*fmt == '%')
@@ -79,10 +80,11 @@ void printf(char *fmt, ...)
                 break;
             }
         else putchar(*fmt);
-        fmt++;
+        fmt++, cnt++;
     }
     va_end(ap);
     if(printlocking) release(&printlock);
+    return cnt;
 }
 
 void panic(const char *s)
