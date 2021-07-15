@@ -100,8 +100,8 @@ struct task_struct* taskAlloc(){
 	memset(task[pid]->mm->pagetable, 0, PAGE_SIZE);
 	memcpy(task[pid]->mm->pagetable, kernel_pagetable, PAGE_SIZE);
 
-	do_mmap(task[pid]->mm, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE, PROT_READ|PROT_WRITE);
-	create_mapping(task[pid]->mm->pagetable, USER_END-PAGE_SIZE, (uint64)kmalloc(PAGE_SIZE),PAGE_SIZE,PTE_R|PTE_W|PTE_U);
+	do_mmap(NULL, task[pid]->mm, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS, 0);
+	create_mapping(task[pid]->mm->pagetable, USER_END-PAGE_SIZE, (uint64)kmalloc(PAGE_SIZE), PAGE_SIZE, PTE_R|PTE_W|PTE_U);
 
 	task[pid]->xstate=-1;
 	task[pid]->chan=0;
@@ -177,7 +177,7 @@ void switch_to(){
 	__switch_to((uint64)&current, (uint64)&nextTask);
 }
 
-void first_switch_to(){
+void first_switch_to(){s\
 	printf("first_switch_to\n");
 	if(!fs_init){
 		fs_init = 1;
@@ -212,7 +212,8 @@ void task_test(){
  */
 void user_init(){
 	struct task_struct* task = taskAlloc();
-	if(!task) panic("[user_init]user init fail!");
+	if(!task)
+		panic("[user_init]user init fail!");
 
 	uvmap(task, task_test, PAGE_SIZE, 0);
 	return;
@@ -331,8 +332,7 @@ int growtask(int64 size){
 		}
 	}else if(newsz < oldsz){
 		for(newsz = PAGE_ROUNDUP(newsz); oldsz>newsz; oldsz-=PAGE_SIZE){
-			kfree((void*)(oldsz-PAGE_SIZE));
-			delete_mapping(current->mm->pagetable, oldsz-PAGE_SIZE, PAGE_SIZE);
+			delete_mapping(current->mm->pagetable, oldsz-PAGE_SIZE, PAGE_SIZE, 1);
 		}
 	}
 	release(&current->lk);

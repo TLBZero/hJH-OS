@@ -70,10 +70,13 @@ struct vm_area_struct {
     /* The address space we belong to. */
     struct mm_struct *vm_mm;	
     /* Access permissions of this VMA. */
-    pgprot_t vm_page_prot;
+    unsigned long vm_page_prot;
     /* Flags*/
     unsigned long vm_flags;
+    /* Files */
     struct file * file;
+    unsigned long file_map_pos;
+    unsigned long file_map_len;
 };
 
 struct mm_struct {

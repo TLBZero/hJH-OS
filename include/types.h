@@ -2,7 +2,7 @@
  * @Author: Yinwhe
  * @Date: 2021-07-10 20:06:58
  * @LastEditors: Yinwhe
- * @LastEditTime: 2021-07-13 22:02:14
+ * @LastEditTime: 2021-07-14 16:21:21
  * @Description: file information
  * @Copyright: Copyright (c) 2021
  */
@@ -28,7 +28,6 @@ typedef unsigned long long  uint64;
 typedef unsigned long   uintptr_t;
 typedef unsigned long   size_t;
 typedef unsigned long   __off_t;
-typedef int pgprot_t;
 
 typedef uint64* pagetable_t;
 typedef uint64 pde_t;

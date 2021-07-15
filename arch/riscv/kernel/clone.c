@@ -74,7 +74,7 @@ pid_t clone(int flag, void *stack, pid_t* ptid, void *tls, pid_t* ctid)
 	else
 		stack = (void *)kwalkaddr(current->mm->pagetable, (uint64)stack);
 	
-	delete_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), PAGE_SIZE);
+	delete_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), PAGE_SIZE, 0);
 	create_mapping(task[child]->mm->pagetable, (USER_END-PAGE_SIZE), (uint64)stack, PAGE_SIZE, PTE_R|PTE_W|PTE_U);
 	memcpy(stack, (void*)(USER_END-PAGE_SIZE), PAGE_SIZE);
 

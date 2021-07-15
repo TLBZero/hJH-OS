@@ -2,7 +2,7 @@
  * @Author: Yinwhe
  * @Date: 2021-07-10 20:06:58
  * @LastEditors: Yinwhe
- * @LastEditTime: 2021-07-12 14:12:26
+ * @LastEditTime: 2021-07-14 22:07:22
  * @Description: file information
  * @Copyright: Copyright (c) 2021
  */
@@ -14,6 +14,7 @@
 
 struct task_struct;
 struct mm_struct;
+struct file;
 
 /* Page Relevant */
 #define PAGE_SHIFT 12
@@ -34,12 +35,15 @@ struct mm_struct;
 #define PTE_U (1L << 4)
 
 /* permission flags */
-#define MAP_PRIVATE     0x2
-#define MAP_ANONYMOUS   0x20
-#define PROT_NONE	    0x0	//页内容不可被访问
-#define PROT_READ	    0x1	//页内容可以被读取
-#define PROT_WRITE	    0x2	//页可以被写入内容
-#define PROT_EXEC	    0x4	//页内容可以被执行
+#define MAP_FILE        0x00
+#define MAP_TYPE	    0x0f		/* Mask for type of mapping */
+#define MAP_FIXED	    0x10		/* Interpret addr exactly */
+#define MAP_ANONYMOUS	0x20		/* don't use a file */
+
+#define PROT_NONE	    0x0	        //页内容不可被访问
+#define PROT_READ	    0x1	        //页内容可以被读取
+#define PROT_WRITE	    0x2	        //页可以被写入内容
+#define PROT_EXEC	    0x4	        //页内容可以被执行
 #define PROT_SEM        0x8 
 #define PROT_GROWSDOWN  0x01000000
 #define PROT_GROWSUP    0x02000000
@@ -57,17 +61,6 @@ struct mm_struct;
 
 #define SV39 (8L<<60)
 
-void paging_init();
-void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm);
-void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz);
-pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc);
-uint64 kwalkaddr(pagetable_t kpt, uint64 va);;
-
-int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned);
-void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot);
-int munmap(void *start, size_t len);
-void *mmap(void *start, size_t len, int prot, int flags,
-                  int fd, off_t off);
 
 extern pagetable_t kernel_pagetable;
 
@@ -82,3 +75,17 @@ extern char data_end[];
 extern char bss_start[];
 extern char bss_end[];
 extern char _end[];
+
+void paging_init();
+void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm);
+void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz, uint8 free_frame);
+pagetable_t walk(pagetable_t pagetable, uint64 va, int alloc);
+uint64 kwalkaddr(pagetable_t kpt, uint64 va);;
+
+int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned);
+void *do_mmap(struct file *file, struct mm_struct *mm, void *start, 
+    size_t len, unsigned long prot, unsigned long flags, off_t off);
+int munmap(void *start, size_t len);
+int do_munmap(struct mm_struct *mm, unsigned long start, size_t len);
+void *mmap(void *start, size_t len, unsigned long prot, 
+                unsigned long flags, int fd, off_t off);

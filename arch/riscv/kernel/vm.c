@@ -7,6 +7,7 @@
 #include "put.h"
 #include "string.h"
 
+/* This is the first kernel pagetable */
 pagetable_t kernel_pagetable=NULL;
 
 /** 
@@ -43,8 +44,10 @@ uint64 kwalkaddr(pagetable_t kpt, uint64 va)
     uint64 pa;
 
     pte = walk(kpt, va, 0);
-    if(pte == 0) panic("kvmpa");
-    if((*pte & PTE_V) == 0) panic("kvmpa");
+    if(pte == 0)
+        panic("kvmpa");
+    if((*pte & PTE_V) == 0)
+        panic("kvmpa");
 
     pa = PTE2PA(*pte);
     return pa+off;
@@ -75,17 +78,28 @@ void create_mapping(uint64 *pgtbl, uint64 va, uint64 pa, uint64 sz, int perm){
     }
 }
 
-void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz){
+/**
+ * @brief 释放页表映射，也可以释放掉相应的页
+ * 
+ * @param pgtbl 要进行操作的页表
+ * @param va 虚拟地址
+ * @param sz 要释放的内存大小
+ * @param free_frame 如果为1，则同时释放页
+ */
+void delete_mapping(uint64 *pgtbl, uint64 va, uint64 sz, uint8 free_frame){
     if(sz==0) return;
 
     uint64 pgStart = PAGE_ROUNDDOWN(va);
     uint64 pgEnd = PAGE_ROUNDDOWN(va+sz-1);
     while(pgStart<=pgEnd){
         pte_t* pte = walk(pgtbl, pgStart, 0);
+        uint64 pa = PTE2PA(*pte);
         if(pte==0)
             panic("delete_mapping error, pte already 0!");
         else *pte = 0;
 
+        if(free_frame)
+            kfree((void*)pa);
         pgStart+=PAGE_SIZE;
     }
 }
@@ -166,12 +180,19 @@ void paging_init(){
     return;
 }
 
+/**
+ * @brief 获取一段没有被占用的虚拟内存
+ * 
+ * @param length 需要的内存大小
+ * @return 虚拟内存的起始地址 
+ */
 uint64 get_unmapped_area(size_t length){
     void *start = 0;
     int i, n = (length>>PAGE_SHIFT);
     while(1){
         for(i=0;i<n;i++){
-            if((((uint64)walk(current->mm->pagetable, (uint64)start+PAGE_SIZE*i, 0))&PTE_V)==0)
+            uint64 pte = (uint64)walk(current->mm->pagetable, (uint64)start+PAGE_SIZE*i, 0);
+            if((pte&PTE_V)!=0)
                 break;
         }
         if(i==n) break;
@@ -181,22 +202,30 @@ uint64 get_unmapped_area(size_t length){
     return (uint64)start;
 }
 
-void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
-    //Code to fetch an non-mapped address
+
+
+void *do_mmap(struct file *file, struct mm_struct *mm, void *start, 
+    size_t len, unsigned long prot, unsigned long flags, off_t off)
+{
+    /* Code to fetch an non-mapped address */
     uint64 astart= (uint64)start;
     size_t alength = PAGE_ROUNDUP(len);
-    int i;
-    for(i=0;i<(alength>>PAGE_SHIFT);i++){
-        if(((uint64) walk(mm->pagetable, astart+PAGE_SIZE*i, 0))&PTE_V != 0)
+    int i, pgnum = alength>>PAGE_SHIFT;
+    for(i=0; i<pgnum; i++){
+        uint64 pte = (uint64)walk(current->mm->pagetable, (uint64)start+PAGE_SIZE*i, 0);
+        if((pte&PTE_V)!=0)
             break;
     }
-    if(i!=(alength>>PAGE_SHIFT)) astart=get_unmapped_area(alength);
+    if(i!=pgnum)
+        astart=get_unmapped_area(alength);
 
     struct vm_area_struct* newVMA= (struct vm_area_struct*)kmalloc(sizeof(struct vm_area_struct));
     newVMA->vm_start=astart;
     newVMA->vm_end=astart+alength;
-    newVMA->vm_flags=prot;
+    newVMA->vm_page_prot=prot;
+    newVMA->vm_flags = flags;
     newVMA->vm_mm=mm;
+    newVMA->file=file;
     //insert
     if(mm->vma){
         newVMA->vm_prev=mm->vma;
@@ -209,56 +238,47 @@ void *do_mmap(struct mm_struct *mm, void *start, size_t len, int prot) {
         newVMA->vm_prev=newVMA;
         newVMA->vm_next=newVMA;
     }
+
+    if(file){
+        file->f_pos = off;
+        newVMA->file_map_pos = off;
+        newVMA->file_map_len = len;
+    }
+
     #ifdef DEBUG
     printf("[S] New vm_area_struct: start %p, end %p, prot [r:%d,w:%d,x:%d]\n",newVMA->vm_start, newVMA->vm_end, (prot&PROT_READ)!=0, (prot&PROT_WRITE)!=0, (prot&PROT_EXEC)!=0);
     #endif
     return (void*)astart;
 }
 
-void *mmap(void *start, size_t len, int prot, int flags,
-                  int fd, off_t off)
+/**
+ * @brief 分配内存，或将文件或设备映射到内存中
+ * 
+ * @param start 如果不为NULL，内核会在此地址创建映射；
+ *              否则，内核会选择一个合适的虚拟地址。
+ * @param len   表示映射到进程地址空间的大小。
+ * @param prot  内存区域的读/写/执行属性。
+ * @param flags 内存映射的属性，共享、私有、匿名、文件等。
+ * @param fd    表示这是一个文件映射，fd是打开文件的句柄。如果是文件映射，需要指定fd；匿名映射就指定一个特殊的-1。
+ * @param off   在文件映射时，表示相对文件头的偏移量；返回的地址是偏移量对应的虚拟地址。
+ */
+void *mmap(void *start, size_t len, unsigned long prot, 
+                unsigned long flags, int fd, off_t off)
 {
-    if(fd<=2){
-        return do_mmap(current->mm, start, len, prot);
+    struct file * file = NULL;
+    if(!(flags&MAP_ANONYMOUS) && fd>=2){ // File map
+        file = current->FTable[fd];
+        if(!file)
+            panic("Error during mmap file, file not exist!");
     }
-    else 
-    {
-        struct vm_area_struct* nvma = kmalloc(sizeof(struct vm_area_struct));
-        nvma->vm_flags = flags;
-        nvma->vm_page_prot = prot;
-        nvma->file = current->FTable[fd];
-        nvma->vm_mm = current->mm;
-        nvma->vm_prev = current->mm->vma;
-        nvma->vm_next = current->mm->vma->vm_next;
-        current->mm->vma->vm_next->vm_prev = nvma;
-        current->mm->vma->vm_next = nvma;
-        nvma->file->f_pos = off;
-        fread(nvma->file, start, len);
-        return start;
-    }
+
+    return do_mmap(file, current->mm, start, len, prot, flags, off);
 }
 
-
-void free_page_tables(pagetable_t pagetable, uint64 va, uint64 n, int free_frame){
-    pte_t* pte;
-    uint64 pa;
-    for(int i=0;i<n;i++){
-        pte=walk(pagetable, va, 0);
-        pa = PTE2PA(*pte)+VA_OFFSET(va);
-        *pte=0;
-
-        if(free_frame)
-            kfree((void*)pa);//Free frames
-        va+=PAGE_SHIFT;
-    }
-    return;
-}
-
-int munmap(void *start, size_t len)
-{
-    size_t alength = PAGE_ROUNDUP(len);
-    void *end = start+alength;
-    struct vm_area_struct *vma=current->mm->vma;
+int do_munmap(struct mm_struct *mm, unsigned long start, size_t len){
+    size_t  alength = PAGE_ROUNDUP(len);
+    void    *end = start+alength;
+    struct vm_area_struct *vma=mm->vma;
     uint64 va = 0;
 
     if(!vma) return -1;
@@ -266,16 +286,20 @@ int munmap(void *start, size_t len)
         if (vma->vm_start==start&&vma->vm_end==end)
         {
             va=(uint64)start;
-            free_page_tables(current->mm->pagetable, va, alength>>PAGE_SHIFT, 1);
-            struct vm_area_struct *next = vma->vm_next;
-            struct vm_area_struct *prev = vma->vm_prev;
-            if(next==vma)
+            /* Sync */
+            if(vma->file){
+                vma->file->f_pos = vma->file_map_pos;
+                fwrite(vma->file, va, alength);
+            }
+            /* Remove from list */
+            if(vma->vm_next==vma){
                 current->mm->vma=0;
+            }
             else {
-                if (current->mm->vma==vma)
-                    current->mm->vma = next;
-                next->vm_prev = prev;
-                prev->vm_next = next;
+                if (mm->vma==vma)
+                    mm->vma = vma->vm_next;
+                vma->vm_next->vm_prev = vma->vm_prev;
+                vma->vm_prev->vm_next = vma->vm_next;
             }
             kfree(vma);
             break;
@@ -285,6 +309,11 @@ int munmap(void *start, size_t len)
 
     if (!va) return -1;
     return 0;
+}
+
+int munmap(void *start, size_t len)
+{
+    return do_munmap(current->mm, start, len);
 }
 
 /**
@@ -307,7 +336,7 @@ int uvmap(struct task_struct *utask, void* src, uint size, uint8 aligned){
         mem = (void*)kwalkaddr(utask->mm->pagetable, (uint64)src);
     }
 
-	do_mmap(utask->mm, 0, size, PROT_READ|PROT_WRITE|PROT_EXEC);
+	do_mmap(NULL, utask->mm, 0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS, 0);
     create_mapping(utask->mm->pagetable, 0, (uint64)mem, size, PTE_R|PTE_W|PTE_X|PTE_U);
     utask->size = size;
     

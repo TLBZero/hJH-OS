@@ -52,12 +52,12 @@ struct task_struct;
 
 /* File Structure */
 struct file {
-    uint8 f_type;   /* File type */
-    int f_perm;     /* Permission Control */
+    uint8 	f_type;   	/* File type */
+    int 	f_perm;     /* Permission Control */
     struct dirent* f_entry;
-    int f_count;    /* Reference Count */
-    uint32 f_pos;   /* File Pointer */
-    uint8 major;    /* Device Distinguisher */
+    int 	f_count;    /* Reference Count */
+    uint32 	f_pos;   	/* File Pointer */
+    uint8 	major;    	/* Device Distinguisher */
 
     struct pipe *pipe;
 };
